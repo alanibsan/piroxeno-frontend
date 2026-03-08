@@ -1,10 +1,14 @@
 @import "tailwindcss";
 
-@layer utilities {
-  :root {
-    --color-softbg: #F8F7F4;
-    --color-gold: #C8A24D;
-    --color-primary: #00cc99;
-    --color-dark: #2A2A2A;
-  }
+:root {
+  --font-sans: "Manrope", system-ui, sans-serif;
+
+  --color-softbg: #F8F7F4;
+  --color-gold: #C8A24D;
+  --color-primary: #00cc99;
+  --color-dark: #2A2A2A;
+}
+
+body {
+  font-family: "Manrope", sans-serif;
 }
