@@ -1,4 +1,3 @@
-import heroBg from "../assets/hero-bg.png";
 import fondo from "../assets/fondito.png";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
