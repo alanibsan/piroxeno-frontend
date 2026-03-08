@@ -17,6 +17,8 @@ const features = [
   "Capture leads automatically",
   "Book meetings 24/7",
   "Integrate with WhatsApp",
+  "Measure customer sentiment and objections",
+  "Provide insights on what visitors want and why they leave",
 ];
 
 export default function Landing() {
@@ -121,7 +123,7 @@ export default function Landing() {
 
           <div className="bg-gray-100 p-3 rounded-xl w-fit relative">
             Of course. Are you available next Thursday at 3:00 PM?
-                        <Sparkle className="absolute bottom--2 left-1 w-4 h-4 text-purple-700 opacity-70" />
+            <Sparkle className="absolute bottom--2 left-1 w-4 h-4 text-purple-700 opacity-70" />
           </div>
 
           <div className="bg-[var(--color-primary)] text-white p-3 rounded-xl w-fit ml-auto">
@@ -130,52 +132,18 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FEATURES ROTATOR */}
+      {/* FEATURES ROTATOR + 3 steps */}
 
       <section className="py-24 text-center">
         <h3 className="text-4xl font-bold mb-12">
           What your AI assistant can do
         </h3>
 
-        <div className="text-2xl text-[var(--color-primary)] font-semibold">
-          {features[featureIndex]}
+        <div className="text-4xl text-[var(--color-primary)] font-semibold">
+          {features[featureIndex]} 
         </div>
-      </section>
 
-      {/* USE CASES */}
-
-      <section className="py-24 bg-[#e6fffa]">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-12 text-center">
-          <div>
-            <h4 className="font-bold text-xl mb-2">Customer Support</h4>
-
-            <p className="text-gray-600">
-              Resolve FAQs automatically and reduce support workload.
-            </p>
-          </div>
-
-          <div>
-            <h4 className="font-bold text-xl mb-2">Lead Generation</h4>
-
-            <p className="text-gray-600">
-              Capture visitors and qualify them instantly.
-            </p>
-          </div>
-
-          <div>
-            <h4 className="font-bold text-xl mb-2">Bookings</h4>
-
-            <p className="text-gray-600">
-              Let customers schedule meetings without human intervention.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* HOW IT WORKS */}
-
-      <section className="px-8 py-24">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-10 text-center">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-10 text-center mt-10">
           <div>
             <div className="text-[var(--color-primary)] text-4xl mb-4">1</div>
 
@@ -208,19 +176,20 @@ export default function Landing() {
         </div>
       </section>
 
+     
       {/* FINAL CTA */}
 
       <section className="py-32 bg-[#0f172a] text-white text-center">
         <h3 className="text-4xl font-bold mb-6">
-          Start automating conversations today
+          Start saving time, money, and missed opportunities with AI.
         </h3>
 
         <p className="text-gray-400 mb-10">
-          Deploy your AI assistant in minutes.
+          Go Live next week.
         </p>
 
         <Link
-          to="/request-demo"
+          to="/requestDemo"
           className="bg-[var(--color-primary)] px-10 py-4 rounded-2xl text-lg font-semibold hover:opacity-90 transition"
         >
           Request Demo

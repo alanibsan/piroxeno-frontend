@@ -18,7 +18,7 @@ export default function WhatsAppBot() {
         </p>
 
         <Link
-          to="/request-demo"
+          to="/requestDemo"
           className="bg-[#00cc99] text-white px-8 py-4 rounded-full font-semibold text-lg hover:opacity-90 transition"
         >
           Request Demo
@@ -138,7 +138,7 @@ export default function WhatsAppBot() {
         </h2>
 
         <Link
-          to="/request-demo"
+          to="/requestDemo"
           className="bg-[#00cc99] text-white px-8 py-4 rounded-full font-semibold text-lg hover:opacity-90 transition"
         >
           Request Demo

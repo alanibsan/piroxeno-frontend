@@ -54,7 +54,7 @@ export default function Pricing() {
           </ul>
 
           <Link
-            to="/request-demo"
+            to="/requestDemo"
             className="bg-gray-900 text-white text-center py-3 rounded-full font-semibold hover:opacity-90 transition"
           >
             Request information
@@ -97,7 +97,7 @@ export default function Pricing() {
           </ul>
 
           <Link
-            to="/request-demo"
+            to="/requestDemo"
             className="bg-[#00cc99] text-white text-center py-3 rounded-full font-semibold hover:opacity-90 transition"
           >
             Request information
@@ -138,7 +138,7 @@ export default function Pricing() {
           </ul>
 
           <Link
-            to="/request-demo"
+            to="/requestDemo"
             className="bg-gray-900 text-white text-center py-3 rounded-full font-semibold hover:opacity-90 transition"
           >
             Contact sales
