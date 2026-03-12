@@ -12,15 +12,26 @@ import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
-
+import { useEffect } from "react";
 
 function App() {
+  useEffect(() => {
+    if (window.PiroxenoWidgetLoaded) return;
+
+    const script = document.createElement("script");
+    script.src = "https://api.piroxeno.com/widget.js";
+    script.async = true;
+    script.setAttribute("data-api-key", "pxn_live_piroxchat_01");
+
+    document.body.appendChild(script);
+
+    window.PiroxenoWidgetLoaded = true;
+  }, []);
+
   return (
     <BrowserRouter>
       <ScrollToTop />
-
       <Navbar /> {/* GLOBAL */}
-
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
@@ -32,7 +43,6 @@ function App() {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
       </Routes>
-
       <Footer />
     </BrowserRouter>
   );

@@ -140,7 +140,7 @@ export default function Landing() {
         </h3>
 
         <div className="text-4xl text-[var(--color-primary)] font-semibold">
-          {features[featureIndex]} 
+          {features[featureIndex]}
         </div>
 
         <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-10 text-center mt-10">
@@ -176,7 +176,6 @@ export default function Landing() {
         </div>
       </section>
 
-     
       {/* FINAL CTA */}
 
       <section className="py-32 bg-[#0f172a] text-white text-center">
@@ -184,9 +183,7 @@ export default function Landing() {
           Start saving time, money, and missed opportunities with AI.
         </h3>
 
-        <p className="text-gray-400 mb-10">
-          Go Live next week.
-        </p>
+        <p className="text-gray-400 mb-10">Go Live next week.</p>
 
         <Link
           to="/requestDemo"
@@ -195,6 +192,7 @@ export default function Landing() {
           Request Demo
         </Link>
       </section>
+
     </div>
   );
 }
