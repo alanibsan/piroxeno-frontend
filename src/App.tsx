@@ -19,7 +19,7 @@ function App() {
     if (window.PiroxenoWidgetLoaded) return;
 
     const script = document.createElement("script");
-    script.src = "https://api.piroxeno.com/widget.js";
+    script.src = "https://api.piroxeno.com/static/widget.js";
     script.async = true;
     script.setAttribute("data-api-key", "pxn_live_piroxchat_01");
 
