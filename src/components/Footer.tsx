@@ -57,7 +57,7 @@ export default function Footer() {
 
             <li>
               <a
-                href="mailto:ibarrasantoyo.a@gmail.com"
+                href="mailto:alan@piroxeno.com"
                 className="hover:text-[#00cc99]"
               >
                 Contact
@@ -72,7 +72,7 @@ export default function Footer() {
           <h4 className="font-semibold mb-4">Contact</h4>
 
           <ul className="space-y-3 text-gray-600 text-sm">
-            <li>ibarrasantoyo.a@gmail.com</li>
+            <li>alan@piroxeno.com</li>
 
             <li>Mexico City, Mexico</li>
             <li>Madrid, Spain</li>

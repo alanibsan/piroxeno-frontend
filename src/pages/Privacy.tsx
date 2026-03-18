@@ -128,7 +128,7 @@ export default function Privacy() {
             </p>
 
             <p className="mt-2 font-medium">
-              ibarrasantoyo.a@gmail.com
+              alan@piroxeno.com
             </p>
           </div>
 
