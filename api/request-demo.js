@@ -72,6 +72,10 @@ export default async function handler(req, res) {
   const from = process.env.RESEND_FROM_EMAIL || "Piroxeno <onboarding@resend.dev>";
 
   if (!apiKey || !to) {
+    console.error("Missing email configuration", {
+      hasResendApiKey: Boolean(apiKey),
+      hasDemoToEmail: Boolean(to),
+    });
     return json(res, 500, { error: "Missing email configuration" });
   }
 
@@ -81,36 +85,45 @@ export default async function handler(req, res) {
     return json(res, 400, { error: "Email is required" });
   }
 
-  const response = await fetch(RESEND_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to,
-      reply_to: lead.email,
-      subject: `Nueva solicitud de demo${lead.company ? ` - ${lead.company}` : ""}`,
-      html: leadHtml(lead),
-      text: [
-        "Nueva solicitud de demo",
-        "",
-        `Nombre: ${`${lead.firstName} ${lead.lastName}`.trim()}`,
-        `Email: ${lead.email}`,
-        `Telefono: ${lead.phone}`,
-        `Cargo: ${lead.jobTitle}`,
-        `Empresa: ${lead.company}`,
-        `Origen: ${lead.source}`,
-      ].join("\n"),
-    }),
-  });
+  try {
+    const response = await fetch(RESEND_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "User-Agent": "Piroxeno Demo Form/1.0",
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        reply_to: lead.email,
+        subject: `Nueva solicitud de demo${lead.company ? ` - ${lead.company}` : ""}`,
+        html: leadHtml(lead),
+        text: [
+          "Nueva solicitud de demo",
+          "",
+          `Nombre: ${`${lead.firstName} ${lead.lastName}`.trim()}`,
+          `Email: ${lead.email}`,
+          `Telefono: ${lead.phone}`,
+          `Cargo: ${lead.jobTitle}`,
+          `Empresa: ${lead.company}`,
+          `Origen: ${lead.source}`,
+        ].join("\n"),
+      }),
+    });
 
-  if (!response.ok) {
-    const detail = await response.text();
-    console.error("Resend error", detail);
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error("Resend error", {
+        status: response.status,
+        detail,
+      });
+      return json(res, 502, { error: "Unable to send email" });
+    }
+
+    return json(res, 200, { ok: true });
+  } catch (err) {
+    console.error("Email request failed", err);
     return json(res, 502, { error: "Unable to send email" });
   }
-
-  return json(res, 200, { ok: true });
 }
