@@ -16,6 +16,7 @@ export default function RequestDemo() {
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState(false);
 
   const t = {
     title:
@@ -56,6 +57,10 @@ export default function RequestDemo() {
     company: lang === "es" ? "Nombre de la empresa" : "Company Name",
     submitting: lang === "es" ? "Enviando..." : "Submitting...",
     submit: lang === "es" ? "Solicitar demo" : "Request Demo",
+    error:
+      lang === "es"
+        ? "No pudimos enviar tu solicitud. Revisa tus datos e intenta de nuevo."
+        : "We couldn't send your request. Check your details and try again.",
     badge: lang === "es" ? "Demo personalizada" : "Personalized demo",
     formTitle: lang === "es" ? "Cuéntanos de tu negocio" : "Tell us about your business",
     formSubtitle:
@@ -71,24 +76,36 @@ export default function RequestDemo() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    setError(false);
 
-    await fetch("https://api.piroxeno.com/request-demo", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        first_name: form.firstName,
-        last_name: form.lastName,
-        phone: form.phone,
-        email: form.email,
-        job_title: form.jobTitle,
-        company: form.company
-      })
-    });
+    try {
+      const response = await fetch("/api/request-demo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          first_name: form.firstName,
+          last_name: form.lastName,
+          phone: form.phone,
+          email: form.email,
+          job_title: form.jobTitle,
+          company: form.company,
+          source: "request-demo"
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Demo request failed");
+      }
+
+      setSuccess(true);
+    } catch (err) {
+      console.error(err);
+      setError(true);
+    }
 
     setLoading(false);
-    setSuccess(true);
   };
 
   return (
@@ -209,6 +226,12 @@ export default function RequestDemo() {
                   {loading ? t.submitting : t.submit}
                   <Send className="h-4 w-4" />
                 </button>
+
+                {error && (
+                  <p className="text-center text-sm text-red-300">
+                    {t.error}
+                  </p>
+                )}
               </form>
             )}
           </div>

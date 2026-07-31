@@ -7,6 +7,7 @@ export default function DemoEmailInput() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState(false);
 
   const t = {
     placeholder:
@@ -17,14 +18,20 @@ export default function DemoEmailInput() {
       lang === "es"
         ? "Gracias. Te contactaremos pronto."
         : "Thanks. We'll contact you soon.",
+    error:
+      lang === "es"
+        ? "No pudimos enviar tu solicitud. Intenta de nuevo."
+        : "We couldn't send your request. Please try again.",
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    setSuccess(false);
+    setError(false);
 
     try {
-      await fetch("https://api.piroxeno.com/request-demo", {
+      const response = await fetch("/api/request-demo", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -35,10 +42,15 @@ export default function DemoEmailInput() {
         })
       });
 
+      if (!response.ok) {
+        throw new Error("Demo request failed");
+      }
+
       setSuccess(true);
       setEmail("");
     } catch (err) {
       console.error(err);
+      setError(true);
     }
 
     setLoading(false);
@@ -69,6 +81,12 @@ export default function DemoEmailInput() {
       {success && (
         <p className="mt-3 text-center text-sm text-emerald-300 lg:text-left">
           {t.success}
+        </p>
+      )}
+
+      {error && (
+        <p className="mt-3 text-center text-sm text-red-300 lg:text-left">
+          {t.error}
         </p>
       )}
     </form>
