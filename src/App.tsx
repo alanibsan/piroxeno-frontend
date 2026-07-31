@@ -1,10 +1,9 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import RequestDemo from "./pages/RequestDemo";
-import DemoRequests from "./pages/RequestDemo";
 import WebBot from "./pages/WebBot";
 import WhatsAppBot from "./pages/Whatsapp";
 import Pricing from "./pages/Pricing";
@@ -14,8 +13,11 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import { useEffect } from "react";
 
+const ENABLE_PIROXENO_WIDGET = false;
+
 function App() {
   useEffect(() => {
+    if (!ENABLE_PIROXENO_WIDGET) return;
     if (window.PiroxenoWidgetLoaded) return;
 
     const script = document.createElement("script");
@@ -31,17 +33,18 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <Navbar /> {/* GLOBAL */}
+      <Navbar />
       <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/RequestDemo" element={<RequestDemo />} />
-        <Route path="/demo-requests" element={<DemoRequests />} />
-        <Route path="/web-bot" element={<WebBot />} />
-        <Route path="/whatsapp-bot" element={<WhatsAppBot />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
+        <Route path="/" element={<Navigate to="/es" />} />
+
+        <Route path="/:lang" element={<Landing />} />
+        <Route path="/:lang/login" element={<Login />} />
+        <Route path="/:lang/request-demo" element={<RequestDemo />} />
+        <Route path="/:lang/web-bot" element={<WebBot />} />
+        <Route path="/:lang/whatsapp-bot" element={<WhatsAppBot />} />
+        <Route path="/:lang/pricing" element={<Pricing />} />
+        <Route path="/:lang/privacy" element={<Privacy />} />
+        <Route path="/:lang/terms" element={<Terms />} />
       </Routes>
       <Footer />
     </BrowserRouter>

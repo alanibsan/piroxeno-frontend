@@ -12,3 +12,27 @@
 body {
   font-family: "Manrope", sans-serif;
 }
+
+@keyframes partner-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.partner-carousel {
+  animation: partner-scroll 22s linear infinite;
+}
+
+.partner-carousel:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .partner-carousel {
+    animation: none;
+  }
+}
