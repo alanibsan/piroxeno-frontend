@@ -25,10 +25,6 @@ export default function Login() {
     submit: lang === "es" ? "Entrar" : "Sign in",
     loading: lang === "es" ? "Validando..." : "Validating...",
     error: lang === "es" ? "No pudimos validar el acceso." : "We could not validate access.",
-    note:
-      lang === "es"
-        ? "Temporalmente este login usa un token. Después debe conectarse con Supabase Auth."
-        : "This login temporarily uses a token. Later it should be connected to Supabase Auth.",
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -101,8 +97,6 @@ export default function Login() {
             <LogIn className="h-5 w-5" />
             {loading ? t.loading : t.submit}
           </button>
-
-          <p className="mt-4 text-xs leading-5 text-slate-500">{t.note}</p>
         </form>
       </div>
     </div>
