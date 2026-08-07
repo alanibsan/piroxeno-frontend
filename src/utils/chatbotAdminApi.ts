@@ -93,6 +93,13 @@ export type PortalDoc = {
   body: string;
 };
 
+export type DemoChatResponse = {
+  answer: string;
+  sources: string[];
+  session_id: string;
+  usage?: Record<string, unknown>;
+};
+
 
 async function adminFetch<T>(path: string, token: string, options: RequestInit = {}, apiUrl = API_URL): Promise<T> {
   const response = await fetch(`${apiUrl}${path}`, {
@@ -135,28 +142,38 @@ export const chatbotAdminApi = {
     return data as LoginResponse;
   },
 
-  portalClients(token: string) {
-    return adminFetch<{ clients: ClientSummary[] }>("/portal/clients", token);
+  portalClients(token: string, impersonateUserId?: string) {
+    const query = impersonateUserId ? `?impersonate_user_id=${encodeURIComponent(impersonateUserId)}` : "";
+    return adminFetch<{ clients: ClientSummary[]; user: AppUser }>(`/portal/clients${query}`, token);
   },
-  portalSummary(token: string, params: { client_slug?: string; start_date?: string; end_date?: string }) {
+  portalSummary(token: string, params: { client_slug?: string; start_date?: string; end_date?: string; impersonate_user_id?: string }) {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value) query.set(key, value);
     });
     return adminFetch<PortalSummary>(`/portal/summary${query.toString() ? `?${query.toString()}` : ""}`, token);
   },
-  portalConversations(token: string, params: { client_slug?: string; start_date?: string; end_date?: string; limit?: number }) {
+  portalConversations(token: string, params: { client_slug?: string; start_date?: string; end_date?: string; limit?: number; impersonate_user_id?: string }) {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value) query.set(key, String(value));
     });
     return adminFetch<{ conversations: PortalConversation[] }>(`/portal/conversations${query.toString() ? `?${query.toString()}` : ""}`, token);
   },
-  portalConversationMessages(token: string, conversationId: string) {
-    return adminFetch<{ conversation: PortalConversation; messages: PortalMessage[] }>(`/portal/conversations/${conversationId}/messages`, token);
+  portalConversationMessages(token: string, conversationId: string, impersonateUserId?: string) {
+    const query = impersonateUserId ? `?impersonate_user_id=${encodeURIComponent(impersonateUserId)}` : "";
+    return adminFetch<{ conversation: PortalConversation; messages: PortalMessage[] }>(`/portal/conversations/${conversationId}/messages${query}`, token);
   },
-  portalDocs(token: string, lang: "es" | "en") {
-    return adminFetch<{ docs: PortalDoc[] }>(`/portal/docs?lang=${lang}`, token);
+  portalDocs(token: string, lang: "es" | "en", impersonateUserId?: string) {
+    const query = new URLSearchParams({ lang });
+    if (impersonateUserId) query.set("impersonate_user_id", impersonateUserId);
+    return adminFetch<{ docs: PortalDoc[] }>(`/portal/docs?${query.toString()}`, token);
+  },
+  demoChat(token: string, body: { prompt: string; question: string; session_id?: string; reset?: boolean }) {
+    return adminFetch<DemoChatResponse>("/portal/demo-chat", token, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   },
   listClients(token: string) {
     return adminFetch<{ clients: ClientSummary[] }>("/admin/clients", token);

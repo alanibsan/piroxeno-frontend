@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
-  BarChart3,
   BookOpen,
   Check,
   Copy,
@@ -9,19 +8,22 @@ import {
   Gauge,
   Globe2,
   Languages,
+  Moon,
   LayoutDashboard,
   Loader2,
   LogOut,
   MessageSquareText,
   RefreshCw,
   Search,
+  Send,
   Settings2,
+  Smartphone,
   ShieldCheck,
   Sparkles,
+  Sun,
   Users,
 } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
-import logoMark from "../assets/logo-8.png";
 import { clearAdminToken, getAdminToken, getAdminUser } from "../utils/adminSession";
 import {
   chatbotAdminApi,
@@ -36,7 +38,7 @@ import {
 } from "../utils/chatbotAdminApi";
 import { useLang, type Lang } from "../utils/i18n";
 
-type Section = "overview" | "metrics" | "conversations" | "clients" | "users" | "docs" | "admin";
+type Section = "overview" | "conversations" | "clients" | "users" | "docs" | "admin" | "demo";
 type UserClientMode = "global" | "existing" | "new";
 
 
@@ -63,12 +65,12 @@ function getLabels(lang: Lang) {
     app: es ? "Portal Piroxeno" : "Piroxeno Portal",
     subtitle: es ? "Operación, métricas y conversaciones de tus asistentes." : "Operations, metrics and conversations for your assistants.",
     overview: es ? "Dashboard" : "Dashboard",
-    metrics: es ? "Métricas" : "Metrics",
     conversations: es ? "Conversaciones" : "Conversations",
     clients: es ? "Clientes" : "Clients",
     users: es ? "Usuarios" : "Users",
     docs: es ? "Documentación" : "Documentation",
     admin: es ? "Administración" : "Administration",
+    demo: es ? "DEMO" : "DEMO",
     refresh: es ? "Actualizar" : "Refresh",
     logout: es ? "Salir" : "Log out",
     active: es ? "Activo" : "Active",
@@ -109,6 +111,14 @@ function getLabels(lang: Lang) {
     roleAdmin: es ? "Admin" : "Admin",
     roleUser: es ? "Usuario" : "User",
     search: es ? "Buscar" : "Search",
+    light: es ? "Claro" : "Light",
+    dark: es ? "Oscuro" : "Dark",
+    impersonating: es ? "Viendo como" : "Viewing as",
+    stopImpersonating: es ? "Volver a admin" : "Back to admin",
+    viewAs: es ? "Ver como" : "View as",
+    demoPrompt: es ? "Prompt de demo" : "Demo prompt",
+    resetDemo: es ? "Resetear demo" : "Reset demo",
+    typeMessage: es ? "Escribe un mensaje" : "Type a message",
   };
 }
 
@@ -144,6 +154,10 @@ export default function AdminDashboard() {
   const [token, setToken] = useState(() => getAdminToken());
   const [user, setUser] = useState(() => getAdminUser());
   const isAdmin = user?.role === "admin";
+  const [theme, setTheme] = useState(() => localStorage.getItem("piroxeno_portal_theme") || "dark");
+  const [impersonatedUser, setImpersonatedUser] = useState<AppUser | null>(null);
+  const actingUser = impersonatedUser || user;
+  const impersonateUserId = impersonatedUser?.id;
 
   const [section, setSection] = useState<Section>("overview");
   const [clients, setClients] = useState<ClientSummary[]>([]);
@@ -156,6 +170,10 @@ export default function AdminDashboard() {
   const [conversationQuery, setConversationQuery] = useState("");
   const [selectedConversationId, setSelectedConversationId] = useState("");
   const [messages, setMessages] = useState<PortalMessage[]>([]);
+  const [demoPrompt, setDemoPrompt] = useState("Eres el asistente de demostracion de Piroxeno. Atiende como un chatbot de WhatsApp para un negocio moderno. Haz preguntas de seguimiento utiles, recuerda datos ya dichos por el usuario y muestra como puedes capturar leads, reservas o dudas frecuentes.");
+  const [demoInput, setDemoInput] = useState("");
+  const [demoSessionId, setDemoSessionId] = useState<string | undefined>();
+  const [demoMessages, setDemoMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [docs, setDocs] = useState<PortalDoc[]>([]);
   const [detail, setDetail] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -174,30 +192,30 @@ export default function AdminDashboard() {
 
   const navItems = [
     ["overview", LayoutDashboard, t.overview, true],
-    ["metrics", BarChart3, t.metrics, true],
     ["conversations", MessageSquareText, t.conversations, true],
     ["clients", Globe2, t.clients, isAdmin],
     ["users", Users, t.users, isAdmin],
     ["docs", BookOpen, t.docs, true],
+    ["demo", Smartphone, t.demo, isAdmin],
     ["admin", Settings2, t.admin, isAdmin],
   ] as const;
 
-  const metricParams = { client_slug: selectedSlug || undefined, start_date: dateStart || undefined, end_date: dateEnd || undefined };
+  const metricParams = { client_slug: selectedSlug || undefined, start_date: dateStart || undefined, end_date: dateEnd || undefined, impersonate_user_id: impersonateUserId };
 
   const loadPortal = async () => {
     if (!token) return;
     setLoading(true);
     setError("");
     try {
-      const clientResponse = await chatbotAdminApi.portalClients(token);
+      const clientResponse = await chatbotAdminApi.portalClients(token, impersonateUserId);
       const nextClients = clientResponse.clients;
       setClients(nextClients);
-      const nextSlug = isAdmin ? selectedSlug : nextClients[0]?.client_slug || "";
-      if (!isAdmin && nextSlug) setSelectedSlug(nextSlug);
+      const nextSlug = actingUser?.role === "admin" ? selectedSlug : nextClients[0]?.client_slug || "";
+      if (actingUser?.role !== "admin" && nextSlug) setSelectedSlug(nextSlug);
       const [summaryResponse, conversationResponse, docsResponse] = await Promise.all([
-        chatbotAdminApi.portalSummary(token, { ...metricParams, client_slug: isAdmin ? metricParams.client_slug : nextSlug || undefined }),
-        chatbotAdminApi.portalConversations(token, { ...metricParams, client_slug: isAdmin ? metricParams.client_slug : nextSlug || undefined, limit: 80 }),
-        chatbotAdminApi.portalDocs(token, lang),
+        chatbotAdminApi.portalSummary(token, { ...metricParams, client_slug: actingUser?.role === "admin" ? metricParams.client_slug : nextSlug || undefined }),
+        chatbotAdminApi.portalConversations(token, { ...metricParams, client_slug: actingUser?.role === "admin" ? metricParams.client_slug : nextSlug || undefined, limit: 80 }),
+        chatbotAdminApi.portalDocs(token, lang, impersonateUserId),
       ]);
       setSummary(summaryResponse);
       setConversations(conversationResponse.conversations);
@@ -241,7 +259,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (token) void loadPortal();
-  }, [token, lang, selectedSlug, dateStart, dateEnd]);
+  }, [token, lang, selectedSlug, dateStart, dateEnd, impersonateUserId]);
 
   const handleLogout = () => {
     clearAdminToken();
@@ -254,10 +272,38 @@ export default function AdminDashboard() {
     navigate(`/${nextLang}/admin`);
   };
 
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    localStorage.setItem("piroxeno_portal_theme", nextTheme);
+  };
+
+  const startImpersonation = (target: AppUser) => {
+    setImpersonatedUser(target);
+    setSelectedSlug(target.client_slug || "");
+    setSection("overview");
+  };
+
+  const stopImpersonation = () => {
+    setImpersonatedUser(null);
+    setSelectedSlug("");
+    setSection("overview");
+  };
+
+  const sendDemoMessage = async (reset = false) => {
+    if (!token || (!demoInput.trim() && !reset)) return;
+    const question = reset ? (lang === "es" ? "Inicia una nueva conversacion de demo." : "Start a new demo conversation.") : demoInput.trim();
+    setDemoInput("");
+    if (!reset) setDemoMessages((current) => [...current, { role: "user", content: question }]);
+    const response = await chatbotAdminApi.demoChat(token, { prompt: demoPrompt, question, session_id: reset ? undefined : demoSessionId, reset });
+    setDemoSessionId(response.session_id);
+    setDemoMessages(reset ? [{ role: "assistant", content: response.answer }] : (current) => [...current, { role: "assistant", content: response.answer }]);
+  };
+
   const loadConversationMessages = async (conversationId: string) => {
     if (!token) return;
     setSelectedConversationId(conversationId);
-    const response = await chatbotAdminApi.portalConversationMessages(token, conversationId);
+    const response = await chatbotAdminApi.portalConversationMessages(token, conversationId, impersonateUserId);
     setMessages(response.messages);
   };
 
@@ -359,12 +405,12 @@ export default function AdminDashboard() {
   if (!token || !user) return <Navigate to={`/${lang}/login`} replace />;
 
   return (
-    <div className="min-h-screen bg-[#050711] text-white">
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_20%_0%,rgba(0,204,153,0.18),transparent_28%),radial-gradient(circle_at_85%_12%,rgba(200,162,77,0.13),transparent_22%),linear-gradient(180deg,#050711_0%,#090d17_100%)]" />
+    <div className={`min-h-screen ${theme === "dark" ? "bg-[#050711] text-white" : "bg-[#f6f7f4] text-slate-950 portal-light"}`}>
+      <div className={`fixed inset-0 -z-10 ${theme === "dark" ? "bg-[radial-gradient(circle_at_20%_0%,rgba(0,204,153,0.18),transparent_28%),radial-gradient(circle_at_85%_12%,rgba(200,162,77,0.13),transparent_22%),linear-gradient(180deg,#050711_0%,#090d17_100%)]" : "bg-[radial-gradient(circle_at_15%_5%,rgba(0,204,153,0.16),transparent_26%),radial-gradient(circle_at_85%_8%,rgba(200,162,77,0.16),transparent_22%),linear-gradient(180deg,#f7f8f4_0%,#eef3ef_100%)]"}`} />
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
         <aside className="border-r border-white/10 bg-black/20 px-4 py-5 backdrop-blur-xl">
           <div className="mb-8 flex items-center gap-3 px-2">
-            <img src={logoMark} alt="Piroxeno" className="h-11 w-11 object-contain" />
+            <img src="/favicon.png" alt="Piroxeno" className="h-11 w-11 object-contain" />
             <div>
               <p className="text-lg font-semibold tracking-tight">{t.app}</p>
               <p className="text-xs text-slate-500">{isAdmin ? t.roleAdmin : t.roleUser}</p>
@@ -396,18 +442,19 @@ export default function AdminDashboard() {
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => void loadPortal()} className="inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-[var(--color-primary)]/60"><RefreshCw className="h-4 w-4" /> {t.refresh}</button>
-              <button onClick={switchLang} className="inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-[var(--color-primary)]/60"><Languages className="h-4 w-4" /> {lang === "es" ? "EN" : "ES"}</button>
+              <button onClick={switchLang} className="inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-[var(--color-primary)]/60"><Languages className="h-4 w-4" /> {lang === "es" ? "EN" : "ES"}</button><button onClick={toggleTheme} className="inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-[var(--color-primary)]/60">{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} {theme === "dark" ? t.light : t.dark}</button>
               <button onClick={handleLogout} className="inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm text-slate-400 hover:text-white"><LogOut className="h-4 w-4" /> {t.logout}</button>
             </div>
           </header>
 
           {error && <div className="mb-4 border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>}
           {notice && <div className="mb-4 border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{notice}</div>}
+          {impersonatedUser && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100"><span>{t.impersonating}: {impersonatedUser.email}</span><button onClick={stopImpersonation} className="border border-amber-200/30 px-3 py-2 font-semibold hover:bg-amber-200/10">{t.stopImpersonating}</button></div>}
 
-          {(section === "overview" || section === "metrics" || section === "conversations") && (
+          {(section === "overview" || section === "conversations") && (
             <div className="mb-5 grid gap-3 md:grid-cols-[1fr_160px_160px] xl:grid-cols-[280px_180px_180px_auto]">
-              <Select value={selectedSlug} onChange={(e) => setSelectedSlug(e.target.value)} disabled={!isAdmin}>
-                {isAdmin && <option value="">{t.allClients}</option>}
+              <Select value={selectedSlug} onChange={(e) => setSelectedSlug(e.target.value)} disabled={actingUser?.role !== "admin"}>
+                {actingUser?.role === "admin" && <option value="">{t.allClients}</option>}
                 {clients.map((client) => <option key={client.client_slug} value={client.client_slug}>{client.client_slug}</option>)}
               </Select>
               <TextInput type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} aria-label={t.start} />
@@ -416,7 +463,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {(section === "overview" || section === "metrics") && (
+          {section === "overview" && (
             <div className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
                 <StatCard icon={MessageSquareText} label={t.conversationsKpi} value={formatNumber(summary?.conversation_count)} />
@@ -429,7 +476,7 @@ export default function AdminDashboard() {
 
               <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
                 <section className="border border-white/10 bg-white/[0.035] p-5">
-                  <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><BarChart3 className="h-5 w-5 text-[var(--color-primary)]" /> {t.metrics}</h2>
+                  <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><LayoutDashboard className="h-5 w-5 text-[var(--color-primary)]" /> {t.overview}</h2>
                   <div className="space-y-3">
                     {(summary?.by_client || []).slice(0, 8).map((item) => {
                       const max = Math.max(...(summary?.by_client || [{ messages: 1 }]).map((row) => row.messages), 1);
@@ -513,17 +560,40 @@ export default function AdminDashboard() {
           {section === "users" && isAdmin && (
             <div className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
               <section className="border border-white/10 bg-white/[0.035] p-5"><h2 className="mb-5 text-xl font-semibold">{t.createUser}</h2><div className="space-y-3"><TextInput className="w-full" placeholder="email@cliente.com" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} /><Select className="w-full" value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value as "admin" | "user" })}><option value="user">user</option><option value="admin">admin</option></Select><div className="grid grid-cols-3 border border-white/10 bg-slate-950 p-1 text-sm">{(["existing", "new", "global"] as const).map((mode) => <button key={mode} type="button" onClick={() => setUserClientMode(mode)} className={`px-3 py-2 font-semibold ${userClientMode === mode ? "bg-[var(--color-primary)] text-slate-950" : "text-slate-400 hover:text-white"}`}>{mode === "existing" ? t.existingClient : mode === "new" ? t.newClient : t.global}</button>)}</div>{userClientMode === "existing" && <Select className="w-full" value={userForm.client_slug || ""} onChange={(e) => setUserForm({ ...userForm, client_slug: e.target.value })}><option value="">{t.selectClient}</option>{clients.map((client) => <option key={client.client_slug} value={client.client_slug}>{client.client_slug}</option>)}</Select>}{userClientMode === "new" && <div className="space-y-3 border border-white/10 bg-slate-950 p-3"><TextInput className="w-full" placeholder="client_slug" value={newUserClientForm.client_slug} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, client_slug: e.target.value })} /><TextInput className="w-full" placeholder={lang === "es" ? "Nombre" : "Name"} value={newUserClientForm.name} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, name: e.target.value })} /><textarea className="w-full border border-white/10 bg-[#050711] p-4 font-mono text-sm text-white" rows={4} placeholder="https://cliente.com" value={newUserClientForm.allowed_origins} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, allowed_origins: e.target.value })} /></div>}<TextInput type="password" className="w-full" placeholder={t.tempPassword} value={userForm.password || ""} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} /><label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={userForm.is_active} onChange={(e) => setUserForm({ ...userForm, is_active: e.target.checked })} /> {t.active}</label><button onClick={saveUser} disabled={saving} className="inline-flex items-center gap-2 bg-[var(--color-primary)] px-5 py-3 font-semibold text-slate-950 disabled:opacity-60"><Users className="h-4 w-4" />{t.saveUser}</button></div></section>
-              <section className="overflow-hidden border border-white/10 bg-white/[0.035]"><div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-slate-300">{t.users}</div><div className="divide-y divide-white/10">{users.map((item) => <div key={item.email} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-[1.2fr_0.5fr_0.7fr_0.4fr]"><span className="font-medium text-white">{item.email}</span><span className="text-slate-300">{item.role}</span><span className="text-slate-400">{item.client_slug || t.global}</span><span className={item.is_active ? "text-emerald-300" : "text-red-300"}>{item.is_active ? t.active : t.disabled}</span></div>)}</div></section>
+              <section className="overflow-hidden border border-white/10 bg-white/[0.035]"><div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-slate-300">{t.users}</div><div className="divide-y divide-white/10">{users.map((item) => <div key={item.email} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-[1.2fr_0.5fr_0.7fr_0.4fr_0.5fr]"><span className="font-medium text-white">{item.email}</span><span className="text-slate-300">{item.role}</span><span className="text-slate-400">{item.client_slug || t.global}</span><span className={item.is_active ? "text-emerald-300" : "text-red-300"}>{item.is_active ? t.active : t.disabled}</span><button onClick={() => startImpersonation(item)} className="border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-[var(--color-primary)]/60">{t.viewAs}</button></div>)}</div></section>
             </div>
           )}
 
           {section === "docs" && <section className="grid gap-4 lg:grid-cols-2">{docs.map((doc) => <article key={doc.title} className="border border-white/10 bg-white/[0.035] p-5"><div className="mb-4 flex h-10 w-10 items-center justify-center bg-[var(--color-primary)]/15 text-[var(--color-primary)]"><BookOpen className="h-5 w-5" /></div><h2 className="text-xl font-semibold">{doc.title}</h2><p className="mt-3 leading-7 text-slate-400">{doc.body}</p></article>)}</section>}
+
+          {section === "demo" && isAdmin && <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+            <div className="border border-white/10 bg-white/[0.035] p-5">
+              <h2 className="mb-4 text-xl font-semibold">{t.demoPrompt}</h2>
+              <textarea value={demoPrompt} onChange={(e) => setDemoPrompt(e.target.value)} rows={12} className="w-full border border-white/10 bg-slate-950 p-4 text-sm leading-6 text-white outline-none focus:border-[var(--color-primary)]" />
+              <button onClick={() => void sendDemoMessage(true)} disabled={saving} className="mt-4 inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:border-[var(--color-primary)]/60"><RefreshCw className="h-4 w-4" /> {t.resetDemo}</button>
+            </div>
+            <div className="mx-auto w-full max-w-[390px] rounded-[42px] border border-white/15 bg-black p-3 shadow-2xl shadow-black/40">
+              <div className="rounded-[34px] bg-[#0b141a] p-3">
+                <div className="mx-auto mb-3 h-5 w-28 rounded-full bg-black" />
+                <div className="flex items-center gap-3 border-b border-white/10 pb-3"><img src="/favicon.png" className="h-9 w-9" /><div><p className="text-sm font-semibold text-white">Piroxeno Demo</p><p className="text-xs text-emerald-300">online</p></div></div>
+                <div className="h-[520px] space-y-3 overflow-auto px-1 py-4">
+                  {demoMessages.map((message, index) => <div key={index} className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-5 ${message.role === "user" ? "ml-auto bg-[#005c4b] text-white" : "bg-[#202c33] text-slate-100"}`}>{message.content}</div>)}
+                  {!demoMessages.length && <div className="mt-20 text-center text-sm text-slate-500">WhatsApp demo</div>}
+                </div>
+                <form onSubmit={(e) => { e.preventDefault(); void sendDemoMessage(false); }} className="flex gap-2">
+                  <input value={demoInput} onChange={(e) => setDemoInput(e.target.value)} placeholder={t.typeMessage} className="min-w-0 flex-1 rounded-full bg-[#202c33] px-4 py-3 text-sm text-white outline-none" />
+                  <button className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-primary)] text-slate-950"><Send className="h-5 w-5" /></button>
+                </form>
+              </div>
+            </div>
+          </section>}
 
           {section === "admin" && isAdmin && <section className="grid gap-5 xl:grid-cols-3"><button onClick={() => void syncRegistry("current")} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><RefreshCw className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.syncRegistry}</h2><p className="mt-2 text-sm text-slate-500">Supabase → backend actual</p></button><button onClick={publishLocalClients} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><DatabaseZap className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.publishLocal}</h2><p className="mt-2 text-sm text-slate-500">Backend actual → Supabase</p></button><button onClick={() => void syncRegistry("dev")} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><ShieldCheck className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.replicateDev}</h2><p className="mt-2 text-sm text-slate-500">Supabase → http://127.0.0.1:8000</p></button></section>}
 
           {section === "clients" && !isAdmin && <Navigate to={`/${lang}/admin`} replace />}
           {section === "users" && !isAdmin && <Navigate to={`/${lang}/admin`} replace />}
           {section === "admin" && !isAdmin && <Navigate to={`/${lang}/admin`} replace />}
+          {section === "demo" && !isAdmin && <Navigate to={`/${lang}/admin`} replace />}
 
           <div className="mt-8 flex items-center gap-2 text-xs text-slate-600"><Activity className="h-4 w-4" /> {t.backend}: {chatbotAdminApi.apiUrl}</div>
         </main>
