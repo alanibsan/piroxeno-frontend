@@ -290,14 +290,24 @@ export default function AdminDashboard() {
     setSection("overview");
   };
 
-  const sendDemoMessage = async (reset = false) => {
-    if (!token || (!demoInput.trim() && !reset)) return;
-    const question = reset ? (lang === "es" ? "Inicia una nueva conversacion de demo." : "Start a new demo conversation.") : demoInput.trim();
+  const resetDemoConversation = () => {
+    setDemoSessionId(undefined);
     setDemoInput("");
-    if (!reset) setDemoMessages((current) => [...current, { role: "user", content: question }]);
-    const response = await chatbotAdminApi.demoChat(token, { prompt: demoPrompt, question, session_id: reset ? undefined : demoSessionId, reset });
+    setDemoMessages([]);
+  };
+
+  const sendDemoMessage = async () => {
+    if (!token || !demoInput.trim()) return;
+    const question = demoInput.trim();
+    setDemoInput("");
+    setDemoMessages((current) => [...current, { role: "user", content: question }]);
+    const response = await chatbotAdminApi.demoChat(token, {
+      prompt: demoPrompt,
+      question,
+      session_id: demoSessionId,
+    });
     setDemoSessionId(response.session_id);
-    setDemoMessages(reset ? [{ role: "assistant", content: response.answer }] : (current) => [...current, { role: "assistant", content: response.answer }]);
+    setDemoMessages((current) => [...current, { role: "assistant", content: response.answer }]);
   };
 
   const loadConversationMessages = async (conversationId: string) => {
@@ -570,17 +580,17 @@ export default function AdminDashboard() {
             <div className="border border-white/10 bg-white/[0.035] p-5">
               <h2 className="mb-4 text-xl font-semibold">{t.demoPrompt}</h2>
               <textarea value={demoPrompt} onChange={(e) => setDemoPrompt(e.target.value)} rows={12} className="w-full border border-white/10 bg-slate-950 p-4 text-sm leading-6 text-white outline-none focus:border-[var(--color-primary)]" />
-              <button onClick={() => void sendDemoMessage(true)} disabled={saving} className="mt-4 inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:border-[var(--color-primary)]/60"><RefreshCw className="h-4 w-4" /> {t.resetDemo}</button>
+              <button type="button" onClick={resetDemoConversation} disabled={saving} className="mt-4 inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:border-[var(--color-primary)]/60"><RefreshCw className="h-4 w-4" /> {t.resetDemo}</button>
             </div>
-            <div className="mx-auto w-full max-w-[390px] rounded-[42px] border border-white/15 bg-black p-3 shadow-2xl shadow-black/40">
-              <div className="rounded-[34px] bg-[#0b141a] p-3">
-                <div className="mx-auto mb-3 h-5 w-28 rounded-full bg-black" />
+            <div className="mx-auto w-full max-w-[430px] rounded-[58px] border-[3px] border-black bg-zinc-950 p-1.5 shadow-2xl shadow-black/40 ring-1 ring-white/15">
+              <div className="rounded-[52px] bg-[#0b141a] p-4">
+                <div className="mx-auto mb-4 h-[37px] w-[126px] rounded-full bg-black shadow-inner shadow-zinc-800/70" />
                 <div className="flex items-center gap-3 border-b border-white/10 pb-3"><img src="/favicon.png" className="h-9 w-9" /><div><p className="text-sm font-semibold text-white">Piroxeno Demo</p><p className="text-xs text-emerald-300">online</p></div></div>
-                <div className="h-[520px] space-y-3 overflow-auto px-1 py-4">
+                <div className="h-[620px] space-y-3 overflow-auto px-1 py-4">
                   {demoMessages.map((message, index) => <div key={index} className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-5 ${message.role === "user" ? "ml-auto bg-[#005c4b] text-white" : "bg-[#202c33] text-slate-100"}`}>{message.content}</div>)}
                   {!demoMessages.length && <div className="mt-20 text-center text-sm text-slate-500">WhatsApp demo</div>}
                 </div>
-                <form onSubmit={(e) => { e.preventDefault(); void sendDemoMessage(false); }} className="flex gap-2">
+                <form onSubmit={(e) => { e.preventDefault(); void sendDemoMessage(); }} className="flex gap-2">
                   <input value={demoInput} onChange={(e) => setDemoInput(e.target.value)} placeholder={t.typeMessage} className="min-w-0 flex-1 rounded-full bg-[#202c33] px-4 py-3 text-sm text-white outline-none" />
                   <button className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-primary)] text-slate-950"><Send className="h-5 w-5" /></button>
                 </form>
