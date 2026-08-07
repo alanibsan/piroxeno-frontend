@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 
 import Landing from "./pages/Landing";
@@ -7,6 +7,7 @@ import RequestDemo from "./pages/RequestDemo";
 import WebBot from "./pages/WebBot";
 import WhatsAppBot from "./pages/Whatsapp";
 import Pricing from "./pages/Pricing";
+import AdminDashboard from "./pages/AdminDashboard";
 import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
 import Privacy from "./pages/Privacy";
@@ -15,7 +16,10 @@ import { useEffect } from "react";
 
 const ENABLE_PIROXENO_WIDGET = false;
 
-function App() {
+function AppRoutes() {
+  const location = useLocation();
+  const isAdminRoute = /\/(en|es)\/admin/.test(location.pathname);
+
   useEffect(() => {
     if (!ENABLE_PIROXENO_WIDGET) return;
     if (window.PiroxenoWidgetLoaded) return;
@@ -31,9 +35,9 @@ function App() {
   }, []);
 
   return (
-    <BrowserRouter>
+    <>
       <ScrollToTop />
-      <Navbar />
+      {!isAdminRoute && <Navbar />}
       <Routes>
         <Route path="/" element={<Navigate to="/es" />} />
 
@@ -45,8 +49,17 @@ function App() {
         <Route path="/:lang/pricing" element={<Pricing />} />
         <Route path="/:lang/privacy" element={<Privacy />} />
         <Route path="/:lang/terms" element={<Terms />} />
+        <Route path="/:lang/admin" element={<AdminDashboard />} />
       </Routes>
-      <Footer />
+      {!isAdminRoute && <Footer />}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
     </BrowserRouter>
   );
 }
