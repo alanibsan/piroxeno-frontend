@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Eye, EyeOff, LockKeyhole, LogIn, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, LogIn, Mail, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { setAdminToken } from "../utils/adminSession";
+import { setAdminSession } from "../utils/adminSession";
 import { chatbotAdminApi } from "../utils/chatbotAdminApi";
 import { useLang } from "../utils/i18n";
 
 export default function Login() {
   const lang = useLang();
   const navigate = useNavigate();
-  const [token, setToken] = useState("");
-  const [showToken, setShowToken] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -18,26 +19,29 @@ export default function Login() {
     title: lang === "es" ? "Entrar al panel" : "Sign in to dashboard",
     copy:
       lang === "es"
-        ? "El sitio público de Piroxeno permanece abierto. Este acceso es solo para administrar clientes, dominios y consumo."
-        : "The public Piroxeno site stays open. This access is only for managing clients, domains and usage.",
-    label: lang === "es" ? "Token de administración" : "Admin token",
-    placeholder: "ADMIN_API_TOKEN",
+        ? "El sitio público de Piroxeno permanece abierto. Este acceso es solo para cuentas autorizadas."
+        : "The public Piroxeno site stays open. This area is only for authorized accounts.",
+    email: lang === "es" ? "Correo" : "Email",
+    password: lang === "es" ? "Contraseña" : "Password",
     submit: lang === "es" ? "Entrar" : "Sign in",
     loading: lang === "es" ? "Validando..." : "Validating...",
-    error: lang === "es" ? "No pudimos validar el acceso." : "We could not validate access.",
+    error: lang === "es" ? "Correo o contraseña incorrectos." : "Invalid email or password.",
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const nextToken = token.trim();
-    if (!nextToken) return;
+    const nextEmail = email.trim().toLowerCase();
+    if (!nextEmail || !password) return;
 
     setLoading(true);
     setError("");
 
     try {
-      await chatbotAdminApi.listClients(nextToken);
-      setAdminToken(nextToken);
+      const response = await chatbotAdminApi.login(nextEmail, password);
+      if (response.user.role !== "admin") {
+        throw new Error("Admin role required");
+      }
+      setAdminSession(response.token, response.user);
       navigate(`/${lang}/admin`);
     } catch (err) {
       console.error(err);
@@ -68,22 +72,37 @@ export default function Login() {
             <LockKeyhole className="h-6 w-6" />
           </div>
 
-          <label className="block text-sm font-semibold text-slate-200">{t.label}</label>
+          <label className="block text-sm font-semibold text-slate-200">{t.email}</label>
+          <div className="mt-2 flex border border-white/10 bg-slate-950 focus-within:border-[var(--color-primary)]">
+            <span className="flex items-center px-4 text-slate-500">
+              <Mail className="h-5 w-5" />
+            </span>
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              placeholder="admin@piroxeno.com"
+              className="min-w-0 flex-1 bg-transparent px-1 py-3 text-white outline-none placeholder:text-slate-600"
+            />
+          </div>
+
+          <label className="mt-4 block text-sm font-semibold text-slate-200">{t.password}</label>
           <div className="mt-2 flex border border-white/10 bg-slate-950 focus-within:border-[var(--color-primary)]">
             <input
-              type={showToken ? "text" : "password"}
-              value={token}
-              onChange={(event) => setToken(event.target.value)}
-              placeholder={t.placeholder}
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
               className="min-w-0 flex-1 bg-transparent px-4 py-3 text-white outline-none placeholder:text-slate-600"
             />
             <button
               type="button"
-              onClick={() => setShowToken((value) => !value)}
+              onClick={() => setShowPassword((value) => !value)}
               className="px-4 text-slate-400 hover:text-white"
-              aria-label={showToken ? "Hide token" : "Show token"}
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
-              {showToken ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
 

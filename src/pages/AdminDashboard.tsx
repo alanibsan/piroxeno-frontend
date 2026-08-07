@@ -19,6 +19,7 @@ import {
   type ClientDetail,
   type ClientSummary,
   type ClientUsage,
+  type UpsertAppUser,
 } from "../utils/chatbotAdminApi";
 import { useLang } from "../utils/i18n";
 
@@ -73,11 +74,12 @@ export default function AdminDashboard() {
   });
   const [createdEmbed, setCreatedEmbed] = useState("");
 
-  const [userForm, setUserForm] = useState<AppUser>({
+  const [userForm, setUserForm] = useState<UpsertAppUser>({
     email: "",
     role: "user",
     client_slug: "",
     is_active: true,
+    password: "",
   });
 
   const t = useMemo(
@@ -206,9 +208,11 @@ export default function AdminDashboard() {
     try {
       await chatbotAdminApi.upsertUser(token, {
         ...userForm,
+        email: userForm.email.trim().toLowerCase(),
         client_slug: userForm.client_slug?.trim() || null,
+        password: userForm.password?.trim() || undefined,
       });
-      setUserForm({ email: "", role: "user", client_slug: "", is_active: true });
+      setUserForm({ email: "", role: "user", client_slug: "", is_active: true, password: "" });
       await loadUsers();
       setNotice("Usuario guardado");
     } catch (err) {
@@ -408,6 +412,7 @@ export default function AdminDashboard() {
                 <option value="admin">admin</option>
               </select>
               <input className="mb-3 w-full border border-white/10 bg-slate-950 px-4 py-3 text-white" placeholder="client_slug opcional" value={userForm.client_slug || ""} onChange={(e) => setUserForm({ ...userForm, client_slug: e.target.value })} />
+              <input type="password" className="mb-3 w-full border border-white/10 bg-slate-950 px-4 py-3 text-white" placeholder="Contraseña temporal (min. 10 caracteres)" value={userForm.password || ""} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} />
               <label className="mb-4 flex items-center gap-3 text-sm text-slate-300">
                 <input type="checkbox" checked={userForm.is_active} onChange={(e) => setUserForm({ ...userForm, is_active: e.target.checked })} /> activo
               </label>

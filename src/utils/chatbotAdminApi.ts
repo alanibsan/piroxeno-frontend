@@ -41,6 +41,16 @@ export type AppUser = {
   created_at?: string;
 };
 
+export type UpsertAppUser = AppUser & {
+  password?: string;
+};
+
+export type LoginResponse = {
+  token: string;
+  expires_in: number;
+  user: AppUser;
+};
+
 async function adminFetch<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -64,6 +74,23 @@ async function adminFetch<T>(path: string, token: string, options: RequestInit =
 
 export const chatbotAdminApi = {
   apiUrl: API_URL,
+  async login(email: string, password: string) {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : null;
+
+    if (!response.ok) {
+      const message = data?.detail || "Login failed";
+      throw new Error(Array.isArray(message) ? message[0]?.msg || "Validation error" : message);
+    }
+
+    return data as LoginResponse;
+  },
   listClients(token: string) {
     return adminFetch<{ clients: ClientSummary[] }>("/admin/clients", token);
   },
@@ -102,7 +129,7 @@ export const chatbotAdminApi = {
   listUsers(token: string) {
     return adminFetch<{ users: AppUser[] }>("/admin/users", token);
   },
-  upsertUser(token: string, body: AppUser) {
+  upsertUser(token: string, body: UpsertAppUser) {
     return adminFetch<{ user: AppUser }>("/admin/users", token, {
       method: "POST",
       body: JSON.stringify(body),
