@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_PIROXENO_CHATBOT_API_URL || "https://api.piroxeno.com";
+const API_URL =
+  import.meta.env.VITE_PIROXENO_CHATBOT_API_URL ||
+  (import.meta.env.DEV ? "http://127.0.0.1:8000" : "https://api.piroxeno.com");
 
 export type ClientSummary = {
   client_slug: string;
