@@ -42,9 +42,6 @@ export default function Login() {
 
     try {
       const response = await chatbotAdminApi.login(nextEmail, password);
-      if (response.user.role !== "admin") {
-        throw new Error("Admin role required");
-      }
       setAdminSession(response.token, response.user);
       navigate(`/${lang}/admin`);
     } catch (err) {

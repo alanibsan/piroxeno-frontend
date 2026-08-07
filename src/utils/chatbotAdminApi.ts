@@ -52,6 +52,47 @@ export type LoginResponse = {
   expires_in: number;
   user: AppUser;
 };
+export type PortalSummary = {
+  scope: string;
+  conversation_count: number;
+  message_count: number;
+  assistant_messages: number;
+  user_messages: number;
+  total_tokens: number;
+  avg_latency_ms: number;
+  by_client: { client_slug: string; messages: number; tokens: number }[];
+};
+
+export type PortalConversation = {
+  id: string;
+  client_slug: string;
+  session_id: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  total_tokens: number;
+  last_message: string;
+  last_message_at: string | null;
+};
+
+export type PortalMessage = {
+  id: string;
+  conversation_id: string;
+  client_slug: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  tokens_prompt?: number | null;
+  tokens_completion?: number | null;
+  total_tokens?: number | null;
+  duration_ms?: number | null;
+  created_at: string;
+};
+
+export type PortalDoc = {
+  title: string;
+  body: string;
+};
+
 
 async function adminFetch<T>(path: string, token: string, options: RequestInit = {}, apiUrl = API_URL): Promise<T> {
   const response = await fetch(`${apiUrl}${path}`, {
@@ -92,6 +133,30 @@ export const chatbotAdminApi = {
     }
 
     return data as LoginResponse;
+  },
+
+  portalClients(token: string) {
+    return adminFetch<{ clients: ClientSummary[] }>("/portal/clients", token);
+  },
+  portalSummary(token: string, params: { client_slug?: string; start_date?: string; end_date?: string }) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) query.set(key, value);
+    });
+    return adminFetch<PortalSummary>(`/portal/summary${query.toString() ? `?${query.toString()}` : ""}`, token);
+  },
+  portalConversations(token: string, params: { client_slug?: string; start_date?: string; end_date?: string; limit?: number }) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) query.set(key, String(value));
+    });
+    return adminFetch<{ conversations: PortalConversation[] }>(`/portal/conversations${query.toString() ? `?${query.toString()}` : ""}`, token);
+  },
+  portalConversationMessages(token: string, conversationId: string) {
+    return adminFetch<{ conversation: PortalConversation; messages: PortalMessage[] }>(`/portal/conversations/${conversationId}/messages`, token);
+  },
+  portalDocs(token: string, lang: "es" | "en") {
+    return adminFetch<{ docs: PortalDoc[] }>(`/portal/docs?lang=${lang}`, token);
   },
   listClients(token: string) {
     return adminFetch<{ clients: ClientSummary[] }>("/admin/clients", token);
