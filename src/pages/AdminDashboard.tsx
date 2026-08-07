@@ -24,6 +24,7 @@ import {
 import { useLang } from "../utils/i18n";
 
 type Tab = "clients" | "users" | "create";
+type UserClientMode = "global" | "existing" | "new";
 
 function linesToArray(value: string) {
   return value
@@ -74,6 +75,15 @@ export default function AdminDashboard() {
   });
   const [createdEmbed, setCreatedEmbed] = useState("");
 
+  const [userClientMode, setUserClientMode] = useState<UserClientMode>("existing");
+  const [newUserClientForm, setNewUserClientForm] = useState({
+    client_slug: "",
+    name: "",
+    title: "",
+    allowed_origins: "",
+    primary_color: "#22c55e",
+    rate_limit_per_minute: 30,
+  });
   const [userForm, setUserForm] = useState<UpsertAppUser>({
     email: "",
     role: "user",
@@ -174,6 +184,39 @@ export default function AdminDashboard() {
     }
   };
 
+  const syncRegistry = async (target: "current" | "dev" = "current") => {
+    if (!token) return;
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const apiUrl = target === "dev" ? "http://127.0.0.1:8000" : undefined;
+      const response = await chatbotAdminApi.syncClientsFromRegistry(token, apiUrl);
+      await loadClients(selectedSlug);
+      setNotice(`${response.synced_count} clientes sincronizados${target === "dev" ? " en dev" : ""}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sync clients");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const publishLocalClients = async () => {
+    if (!token) return;
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await chatbotAdminApi.publishLocalClients(token);
+      await loadClients(selectedSlug);
+      setNotice(`${response.published_count} clientes publicados al registry`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not publish clients");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const createClient = async () => {
     if (!token) return;
     setSaving(true);
@@ -206,15 +249,38 @@ export default function AdminDashboard() {
     setError("");
     setNotice("");
     try {
+      let assignedClientSlug = userClientMode === "global" ? null : userForm.client_slug?.trim() || null;
+
+      if (userClientMode === "new") {
+        const response = await chatbotAdminApi.createClient(token, {
+          client_slug: newUserClientForm.client_slug.trim(),
+          name: newUserClientForm.name.trim(),
+          title: newUserClientForm.title.trim() || undefined,
+          allowed_origins: linesToArray(newUserClientForm.allowed_origins),
+          primary_color: newUserClientForm.primary_color,
+          rate_limit_per_minute: Number(newUserClientForm.rate_limit_per_minute),
+        });
+        assignedClientSlug = response.client_slug;
+      }
+
       await chatbotAdminApi.upsertUser(token, {
         ...userForm,
         email: userForm.email.trim().toLowerCase(),
-        client_slug: userForm.client_slug?.trim() || null,
+        client_slug: assignedClientSlug,
         password: userForm.password?.trim() || undefined,
       });
       setUserForm({ email: "", role: "user", client_slug: "", is_active: true, password: "" });
+      setNewUserClientForm({
+        client_slug: "",
+        name: "",
+        title: "",
+        allowed_origins: "",
+        primary_color: "#22c55e",
+        rate_limit_per_minute: 30,
+      });
+      await loadClients(assignedClientSlug || selectedSlug);
       await loadUsers();
-      setNotice("Usuario guardado");
+      setNotice(userClientMode === "new" ? "Cliente y usuario guardados" : "Usuario guardado");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save user");
     } finally {
@@ -244,12 +310,33 @@ export default function AdminDashboard() {
             <h1 className="text-4xl font-semibold tracking-tight">{t.title}</h1>
             <p className="mt-3 max-w-2xl text-slate-400">{t.subtitle}</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => void loadClients()}
               className="inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-[var(--color-primary)]/60"
             >
               <RefreshCw className="h-4 w-4" /> {t.refresh}
+            </button>
+            <button
+              onClick={() => void syncRegistry("current")}
+              disabled={saving}
+              className="inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-[var(--color-primary)]/60 disabled:opacity-60"
+            >
+              <RefreshCw className="h-4 w-4" /> Sync registry
+            </button>
+            <button
+              onClick={() => void publishLocalClients()}
+              disabled={saving}
+              className="inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-[var(--color-primary)]/60 disabled:opacity-60"
+            >
+              <RefreshCw className="h-4 w-4" /> Publicar locales
+            </button>
+            <button
+              onClick={() => void syncRegistry("dev")}
+              disabled={saving}
+              className="inline-flex items-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-[var(--color-primary)]/60 disabled:opacity-60"
+            >
+              <RefreshCw className="h-4 w-4" /> Replicar dev
             </button>
             <button onClick={handleLogout} className="border border-white/10 px-4 py-3 text-sm text-slate-400 hover:text-white">
               Salir
@@ -411,7 +498,39 @@ export default function AdminDashboard() {
                 <option value="user">user</option>
                 <option value="admin">admin</option>
               </select>
-              <input className="mb-3 w-full border border-white/10 bg-slate-950 px-4 py-3 text-white" placeholder="client_slug opcional" value={userForm.client_slug || ""} onChange={(e) => setUserForm({ ...userForm, client_slug: e.target.value })} />
+
+              <div className="mb-3 grid grid-cols-3 border border-white/10 bg-slate-950 p-1 text-sm">
+                {(["existing", "new", "global"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setUserClientMode(mode)}
+                    className={`px-3 py-2 font-semibold ${userClientMode === mode ? "bg-[var(--color-primary)] text-slate-950" : "text-slate-400 hover:text-white"}`}
+                  >
+                    {mode === "existing" ? "Cliente existente" : mode === "new" ? "Cliente nuevo" : "Global"}
+                  </button>
+                ))}
+              </div>
+
+              {userClientMode === "existing" && (
+                <select className="mb-3 w-full border border-white/10 bg-slate-950 px-4 py-3 text-white" value={userForm.client_slug || ""} onChange={(e) => setUserForm({ ...userForm, client_slug: e.target.value })}>
+                  <option value="">Selecciona cliente</option>
+                  {clients.map((client) => (
+                    <option key={client.client_slug} value={client.client_slug}>{client.client_slug}</option>
+                  ))}
+                </select>
+              )}
+
+              {userClientMode === "new" && (
+                <div className="mb-3 space-y-3 border border-white/10 bg-slate-950 p-3">
+                  <input className="w-full border border-white/10 bg-[#050711] px-4 py-3 text-white" placeholder="client_slug" value={newUserClientForm.client_slug} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, client_slug: e.target.value })} />
+                  <input className="w-full border border-white/10 bg-[#050711] px-4 py-3 text-white" placeholder="Nombre del cliente" value={newUserClientForm.name} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, name: e.target.value })} />
+                  <input className="w-full border border-white/10 bg-[#050711] px-4 py-3 text-white" placeholder="Titulo del widget" value={newUserClientForm.title} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, title: e.target.value })} />
+                  <textarea className="w-full border border-white/10 bg-[#050711] p-4 font-mono text-sm text-white" rows={4} placeholder="https://cliente.com
+https://www.cliente.com" value={newUserClientForm.allowed_origins} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, allowed_origins: e.target.value })} />
+                </div>
+              )}
+
               <input type="password" className="mb-3 w-full border border-white/10 bg-slate-950 px-4 py-3 text-white" placeholder="Contraseña temporal (min. 10 caracteres)" value={userForm.password || ""} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} />
               <label className="mb-4 flex items-center gap-3 text-sm text-slate-300">
                 <input type="checkbox" checked={userForm.is_active} onChange={(e) => setUserForm({ ...userForm, is_active: e.target.checked })} /> activo

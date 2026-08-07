@@ -9,6 +9,8 @@ export type ClientSummary = {
   rate_limit_per_minute: number;
   has_prompt: boolean;
   has_embed: boolean;
+  source?: string;
+  registry_updated_at?: string;
 };
 
 export type ClientDetail = {
@@ -51,8 +53,8 @@ export type LoginResponse = {
   user: AppUser;
 };
 
-async function adminFetch<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+async function adminFetch<T>(path: string, token: string, options: RequestInit = {}, apiUrl = API_URL): Promise<T> {
+  const response = await fetch(`${apiUrl}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -112,6 +114,12 @@ export const chatbotAdminApi = {
   },
   getClient(token: string, clientSlug: string) {
     return adminFetch<ClientDetail>(`/admin/clients/${clientSlug}`, token);
+  },
+  syncClientsFromRegistry(token: string, apiUrl = API_URL) {
+    return adminFetch<{ synced_count: number; clients: string[] }>("/admin/clients/sync-from-registry", token, { method: "POST" }, apiUrl);
+  },
+  publishLocalClients(token: string) {
+    return adminFetch<{ published_count: number; clients: string[] }>("/admin/client-registry/publish-local", token, { method: "POST" });
   },
   updateClientConfig(
     token: string,
