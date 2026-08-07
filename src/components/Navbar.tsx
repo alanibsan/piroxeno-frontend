@@ -16,6 +16,7 @@ export default function Navbar() {
     whatsapp: lang === "es" ? "WhatsApp Bot" : "WhatsApp Bot",
     webbot: lang === "es" ? "Web Bot" : "Web Bot",
     demo: lang === "es" ? "Solicitar demo" : "Request Demo",
+    login: lang === "es" ? "Acceso" : "Login",
   };
 
   const switchLang = (newLang: "en" | "es") => {
@@ -112,6 +113,13 @@ export default function Navbar() {
           </div>
 
           <Link
+            to={`/${lang}/login`}
+            className="rounded-full border border-white/12 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-[var(--color-primary)]/60 hover:text-white"
+          >
+            {t.login}
+          </Link>
+
+          <Link
             to={`/${lang}/request-demo`}
             className="rounded-4xl bg-[var(--color-primary)] px-8 py-4 text-lg font-semibold text-slate-950 shadow-[0_0_28px_rgba(0,204,153,0.2)] transition hover:bg-emerald-300"
           >
@@ -151,6 +159,10 @@ export default function Navbar() {
 
           <Link to={`/${lang}/web-bot`} onClick={() => setMenuOpen(false)}>
             {t.webbot}
+          </Link>
+
+          <Link to={`/${lang}/login`} onClick={() => setMenuOpen(false)}>
+            {t.login}
           </Link>
 
           <Link
