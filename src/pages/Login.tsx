@@ -26,6 +26,10 @@ export default function Login() {
     submit: lang === "es" ? "Entrar" : "Sign in",
     loading: lang === "es" ? "Validando..." : "Validating...",
     error: lang === "es" ? "Correo o contraseña incorrectos." : "Invalid email or password.",
+    configError:
+      lang === "es"
+        ? "El acceso admin no esta configurado en el servidor."
+        : "Admin access is not configured on the server.",
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -45,7 +49,8 @@ export default function Login() {
       navigate(`/${lang}/admin`);
     } catch (err) {
       console.error(err);
-      setError(t.error);
+      const message = err instanceof Error ? err.message : "";
+      setError(message.includes("not configured") ? t.configError : t.error);
     } finally {
       setLoading(false);
     }
