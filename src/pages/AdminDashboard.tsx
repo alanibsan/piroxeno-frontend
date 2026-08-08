@@ -3,13 +3,13 @@ import {
   Activity,
   BookOpen,
   Check,
-  CircleHelp,
   Copy,
   DatabaseZap,
   Gauge,
   Globe2,
   Languages,
   Moon,
+  MoreVertical,
   LayoutDashboard,
   Loader2,
   LogOut,
@@ -25,6 +25,8 @@ import {
   Users,
 } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { Activity30DaySection } from "../components/admin/Activity30DaySection";
+import { PortalLoading, Select, StatCard, TextInput } from "../components/admin/PortalPrimitives";
 import { clearAdminToken, getAdminToken, getAdminUser } from "../utils/adminSession";
 import {
   chatbotAdminApi,
@@ -70,6 +72,23 @@ function formatNumber(value?: number | null) {
 function formatDate(value?: string | null) {
   if (!value) return "-";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function blankLast30Days() {
+  const today = new Date();
+  return Array.from({ length: 30 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - 29 + index);
+    return {
+      date: date.toISOString().slice(0, 10),
+      conversations: 0,
+      messages: 0,
+      assistant_messages: 0,
+      user_messages: 0,
+      tokens: 0,
+      avg_latency_ms: 0,
+    };
+  });
 }
 
 function getLabels(lang: Lang) {
@@ -149,43 +168,6 @@ function getLabels(lang: Lang) {
   };
 }
 
-function StatCard({ icon: Icon, label, value, detail, hint }: { icon: typeof Activity; label: string; value: string | number; detail?: string; hint?: string }) {
-  return (
-    <div className="border border-white/10 bg-white/[0.045] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.18)]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-            {label}
-            {hint && <span className="group relative inline-flex cursor-help" aria-label={hint}><CircleHelp className="h-3.5 w-3.5 text-slate-500" /><span className="pointer-events-none absolute left-1/2 top-6 z-40 hidden w-64 -translate-x-1/2 border border-white/10 bg-slate-950 p-3 text-left text-[11px] font-medium normal-case leading-5 tracking-normal text-slate-200 shadow-2xl shadow-black/30 group-hover:block">{hint}</span></span>}
-          </p>
-          <p className="mt-3 text-3xl font-semibold text-white">{value}</p>
-        </div>
-        <div className="flex h-10 w-10 items-center justify-center bg-[var(--color-primary)]/15 text-[var(--color-primary)]">
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-      {detail && <p className="mt-3 text-sm text-slate-500">{detail}</p>}
-    </div>
-  );
-}
-
-function PortalLoading({ show }: { show: boolean }) {
-  if (!show) return null;
-  return (
-    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
-      <img src="/favicon.png" alt="" className="h-16 w-16 animate-spin drop-shadow-[0_18px_35px_rgba(0,0,0,0.35)]" />
-    </div>
-  );
-}
-
-function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-[var(--color-primary)] ${props.className || ""}`} />;
-}
-
-function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-[var(--color-primary)] ${props.className || ""}`} />;
-}
-
 export default function AdminDashboard() {
   const lang = useLang();
   const navigate = useNavigate();
@@ -221,6 +203,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [copied, setCopied] = useState(false);
+  const [openUserMenu, setOpenUserMenu] = useState("");
 
   const [originsDraft, setOriginsDraft] = useState("");
   const [enabledDraft, setEnabledDraft] = useState(true);
@@ -242,10 +225,20 @@ export default function AdminDashboard() {
 
   const metricParams = { client_slug: selectedSlug || undefined, start_date: dateStart || undefined, end_date: dateEnd || undefined, impersonate_user_id: impersonateUserId };
 
+  const clearAlerts = () => {
+    setError("");
+    setNotice("");
+  };
+
+  useEffect(() => {
+    clearAlerts();
+    setOpenUserMenu("");
+  }, [section, selectedSlug, dateStart, dateEnd]);
+
   const loadPortal = async () => {
     if (!token) return;
     setLoading(true);
-    setError("");
+    clearAlerts();
     try {
       const clientResponse = await chatbotAdminApi.portalClients(token, impersonateUserId);
       const nextClients = clientResponse.clients;
@@ -343,7 +336,7 @@ export default function AdminDashboard() {
     setDemoInput("");
     setDemoMessages((current) => [...current, { role: "user", content: question }]);
     setSaving(true);
-    setError("");
+    clearAlerts();
     try {
       const response = await chatbotAdminApi.demoChat(token, {
         prompt: demoPrompt,
@@ -363,7 +356,7 @@ export default function AdminDashboard() {
     if (!token) return;
     setSelectedConversationId(conversationId);
     setConversationLoading(true);
-    setError("");
+    clearAlerts();
     try {
       const response = await chatbotAdminApi.portalConversationMessages(token, conversationId, impersonateUserId);
       setMessages(response.messages);
@@ -383,7 +376,7 @@ export default function AdminDashboard() {
   const saveConfig = async () => {
     if (!detail || !token) return;
     setSaving(true);
-    setError("");
+    clearAlerts();
     try {
       await chatbotAdminApi.updateClientConfig(token, detail.client_slug, {
         allowed_origins: linesToArray(originsDraft),
@@ -417,7 +410,7 @@ export default function AdminDashboard() {
   const saveUser = async () => {
     if (!token) return;
     setSaving(true);
-    setError("");
+    clearAlerts();
     try {
       let assignedClientSlug = userClientMode === "global" ? null : userForm.client_slug?.trim() || null;
       if (userClientMode === "new") {
@@ -440,7 +433,7 @@ export default function AdminDashboard() {
   const toggleUserActive = async (target: AppUser) => {
     if (!token) return;
     setSaving(true);
-    setError("");
+    clearAlerts();
     try {
       await chatbotAdminApi.upsertUser(token, {
         ...target,
@@ -458,7 +451,7 @@ export default function AdminDashboard() {
   const syncRegistry = async (target: "current" | "dev") => {
     if (!token) return;
     setSaving(true);
-    setError("");
+    clearAlerts();
     try {
       const response = await chatbotAdminApi.syncClientsFromRegistry(token, target === "dev" ? "http://127.0.0.1:8000" : undefined);
       await loadPortal();
@@ -473,7 +466,7 @@ export default function AdminDashboard() {
   const publishLocalClients = async () => {
     if (!token) return;
     setSaving(true);
-    setError("");
+    clearAlerts();
     try {
       const response = await chatbotAdminApi.publishLocalClients(token);
       await loadPortal();
@@ -491,8 +484,8 @@ export default function AdminDashboard() {
     return [conversation.client_slug, conversation.session_id, conversation.last_message].some((value) => value?.toLowerCase().includes(needle));
   });
 
-  const activity30d = summary?.activity_30d || [];
-  const hasActivity30d = activity30d.some((item) => item.messages > 0 || item.tokens > 0);
+  const activity30d = summary?.activity_30d?.length ? summary.activity_30d : blankLast30Days();
+  const hasActivity30d = activity30d.some((item) => item.conversations > 0 || item.messages > 0 || item.tokens > 0);
   const maxDailyMessages = Math.max(...activity30d.map((item) => item.messages), 1);
   const displayClient = actingUser?.client_slug || selectedSlug || t.global;
   const employeeUsers = users.filter((item) => !item.client_slug);
@@ -547,11 +540,11 @@ export default function AdminDashboard() {
           {impersonatedUser && <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 border px-4 py-3 text-sm font-semibold shadow-lg ${theme === "dark" ? "border-amber-300/30 bg-amber-300/10 text-amber-100 shadow-black/20" : "border-amber-500/35 bg-amber-100 text-amber-950 shadow-amber-900/10"}`}><span>{t.impersonating}: {impersonatedUser.email}</span><button onClick={stopImpersonation} className={`border px-3 py-2 text-xs font-bold ${theme === "dark" ? "border-amber-200/30 hover:bg-amber-200/10" : "border-amber-600/30 hover:bg-amber-200"}`}>{t.stopImpersonating}</button></div>}
 
           {(section === "overview" || section === "conversations") && (
-            <div className="mb-5 grid gap-3 md:grid-cols-[1fr_160px_160px_auto] xl:grid-cols-[280px_180px_180px_auto]">
-              <Select value={selectedSlug} onChange={(e) => setSelectedSlug(e.target.value)} disabled={actingUser?.role !== "admin"}>
-                {actingUser?.role === "admin" && <option value="">{t.allClients}</option>}
+            <div className={`mb-5 grid gap-3 ${actingUser?.role === "admin" ? "md:grid-cols-[1fr_160px_160px_auto] xl:grid-cols-[280px_180px_180px_auto]" : "md:grid-cols-[160px_160px_auto]"}`}>
+              {actingUser?.role === "admin" && <Select value={selectedSlug} onChange={(e) => setSelectedSlug(e.target.value)}>
+                <option value="">{t.allClients}</option>
                 {clients.map((client) => <option key={client.client_slug} value={client.client_slug}>{client.client_slug}</option>)}
-              </Select>
+              </Select>}
               <TextInput type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} aria-label={t.start} />
               <TextInput type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} aria-label={t.end} />
               <button onClick={() => { setDateStart(""); setDateEnd(""); }} className="flex h-11 w-11 items-center justify-center border border-white/10 text-slate-400 hover:border-white/25 hover:text-white" aria-label="Reset" title="Reset"><RefreshCw className="h-3.5 w-3.5" /></button>
@@ -569,30 +562,7 @@ export default function AdminDashboard() {
                 <StatCard icon={Gauge} label={t.latency} value={`${formatNumber(summary?.avg_latency_ms)} ms`} hint={t.metricHints.latency} />
               </div>
 
-              <section className="border border-white/10 bg-white/[0.035] p-5">
-                <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold"><Activity className="h-5 w-5 text-[var(--color-primary)]" /> {t.activity30d}</h2>
-                {hasActivity30d ? <div>
-                  <div className="flex h-56 items-end gap-1 border-b border-white/10 pb-2">
-                    {activity30d.map((day) => (
-                      <div key={day.date} className="group relative flex min-w-0 flex-1 items-end">
-                        <div
-                          className="w-full bg-[var(--color-primary)]/80 transition hover:bg-[var(--color-primary)]"
-                          style={{ height: `${Math.max(day.messages ? 10 : 2, (day.messages / maxDailyMessages) * 100)}%` }}
-                        />
-                        <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-40 -translate-x-1/2 border border-white/10 bg-slate-950 p-2 text-center text-xs text-slate-200 shadow-xl group-hover:block">
-                          <p className="font-semibold">{new Date(day.date).toLocaleDateString()}</p>
-                          <p>{formatNumber(day.messages)} mensajes</p>
-                          <p>{formatNumber(day.tokens)} tokens</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 flex justify-between text-[11px] text-slate-500">
-                    <span>{activity30d[0] ? new Date(activity30d[0].date).toLocaleDateString() : ""}</span>
-                    <span>{activity30d[activity30d.length - 1] ? new Date(activity30d[activity30d.length - 1].date).toLocaleDateString() : ""}</span>
-                  </div>
-                </div> : <div className="flex h-56 items-center justify-center border border-dashed border-white/10 text-sm text-slate-500">{loading ? "" : t.noData}</div>}
-              </section>
+              <Activity30DaySection activity30d={activity30d} hasActivity30d={hasActivity30d} maxDailyMessages={maxDailyMessages} labels={t} lang={lang} formatNumber={formatNumber} />
 
               <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
                 <section className="border border-white/10 bg-white/[0.035] p-5">
@@ -705,7 +675,8 @@ export default function AdminDashboard() {
                     <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-slate-300">{title as string}</div>
                     <div className="divide-y divide-white/10">{(list as AppUser[]).map((item) => {
                       const isOwner = item.email.toLowerCase() === OWNER_EMAIL;
-                      return <div key={item.email} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-[1.1fr_0.55fr_0.65fr_0.45fr_0.8fr]"><span className="font-medium text-white">{item.email}{isOwner ? " · Owner" : ""}</span><span className="text-slate-300">{item.role}</span><span className="text-slate-400">{item.client_slug || t.global}</span><span className={item.is_active ? "text-emerald-300" : "text-red-300"}>{item.is_active ? t.active : t.disabled}</span><div className="flex flex-wrap gap-2"><button onClick={() => startImpersonation(item)} className="border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-[var(--color-primary)]/60">{t.viewAs}</button><button onClick={() => void toggleUserActive(item)} disabled={isOwner || saving} className="border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-[var(--color-primary)]/60 disabled:cursor-not-allowed disabled:opacity-40">{item.is_active ? (lang === "es" ? "Desactivar" : "Deactivate") : (lang === "es" ? "Activar" : "Activate")}</button></div></div>;
+                      const menuKey = `${title}-${item.email}`;
+                      return <div key={item.email} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-[1.1fr_0.55fr_0.65fr_0.45fr_44px]"><span className="font-medium text-white">{item.email}{isOwner ? " · Owner" : ""}</span><span className="text-slate-300">{item.role}</span><span className="text-slate-400">{item.client_slug || t.global}</span><span className={item.is_active ? "text-emerald-300" : "text-red-300"}>{item.is_active ? t.active : t.disabled}</span><div className="relative flex justify-end"><button onClick={() => setOpenUserMenu(openUserMenu === menuKey ? "" : menuKey)} className="flex h-9 w-9 items-center justify-center border border-white/10 text-slate-400 hover:border-[var(--color-primary)]/60 hover:text-white" aria-label="Actions"><MoreVertical className="h-4 w-4" /></button>{openUserMenu === menuKey && <div className="absolute right-0 top-10 z-30 w-44 border border-white/10 bg-slate-950 p-1 shadow-2xl shadow-black/30"><button onClick={() => { setOpenUserMenu(""); startImpersonation(item); }} className="block w-full px-3 py-2 text-left text-xs font-semibold text-slate-300 hover:bg-white/10">{t.viewAs}</button><button onClick={() => { setOpenUserMenu(""); void toggleUserActive(item); }} disabled={isOwner || saving} className="block w-full px-3 py-2 text-left text-xs font-semibold text-slate-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">{item.is_active ? (lang === "es" ? "Desactivar" : "Deactivate") : (lang === "es" ? "Activar" : "Activate")}</button></div>}</div></div>;
                     })}{!(list as AppUser[]).length && <div className="px-4 py-6 text-sm text-slate-500">{t.noData}</div>}</div>
                   </div>
                 ))}

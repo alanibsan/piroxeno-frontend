@@ -62,7 +62,15 @@ export type PortalSummary = {
   total_tokens: number;
   avg_latency_ms: number;
   by_client: { client_slug: string; messages: number; tokens: number }[];
-  activity_30d: { date: string; messages: number; tokens: number }[];
+  activity_30d: {
+    date: string;
+    conversations: number;
+    messages: number;
+    assistant_messages: number;
+    user_messages: number;
+    tokens: number;
+    avg_latency_ms: number;
+  }[];
 };
 
 export type PortalConversation = {
