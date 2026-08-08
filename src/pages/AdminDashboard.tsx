@@ -41,6 +41,7 @@ import { useLang, type Lang } from "../utils/i18n";
 
 type Section = "overview" | "conversations" | "clients" | "users" | "docs" | "admin" | "demo";
 type UserClientMode = "global" | "existing" | "new";
+const OWNER_EMAIL = "alan@piroxeno.com";
 
 
 function linesToArray(value: string) {
@@ -81,7 +82,7 @@ function getLabels(lang: Lang) {
     clients: es ? "Clientes" : "Clients",
     users: es ? "Usuarios" : "Users",
     docs: es ? "Documentación" : "Documentation",
-    admin: es ? "Administración" : "Administration",
+    admin: es ? "Ajustes" : "Settings",
     demo: es ? "DEMO" : "DEMO",
     refresh: es ? "Actualizar" : "Refresh",
     logout: es ? "Salir" : "Log out",
@@ -114,7 +115,7 @@ function getLabels(lang: Lang) {
     createUser: es ? "Crear usuario" : "Create user",
     existingClient: es ? "Cliente existente" : "Existing client",
     newClient: es ? "Cliente nuevo" : "New client",
-    global: es ? "Global" : "Global",
+    global: es ? "Admin" : "Admin",
     tempPassword: es ? "Contraseña temporal (min. 10 caracteres)" : "Temporary password (min. 10 chars)",
     saveUser: es ? "Guardar usuario" : "Save user",
     syncRegistry: es ? "Sincronizar registry" : "Sync registry",
@@ -133,7 +134,8 @@ function getLabels(lang: Lang) {
     resetDemo: es ? "Resetear demo" : "Reset demo",
     typeMessage: es ? "Escribe un mensaje" : "Type a message",
     portalFor: es ? "Piroxeno x" : "Piroxeno x",
-    settings: es ? "Preferencias" : "Preferences",
+    settings: es ? "Idioma" : "Language",
+    theme: es ? "Tema" : "Theme",
     activity30d: es ? "Actividad de los ultimos 30 dias" : "Last 30 days activity",
     noData: es ? "Sin datos todavía" : "No data yet",
     metricHints: {
@@ -235,7 +237,7 @@ export default function AdminDashboard() {
     ["users", Users, t.users, isAdmin],
     ["docs", BookOpen, t.docs, true],
     ["demo", Smartphone, t.demo, isAdmin],
-    ["admin", Settings2, t.admin, isAdmin],
+    ["admin", Settings2, t.admin, true],
   ] as const;
 
   const metricParams = { client_slug: selectedSlug || undefined, start_date: dateStart || undefined, end_date: dateEnd || undefined, impersonate_user_id: impersonateUserId };
@@ -422,14 +424,32 @@ export default function AdminDashboard() {
         const response = await createClient(newUserClientForm);
         assignedClientSlug = response.client_slug;
       }
-      const assignedRole = userClientMode === "global" ? userForm.role : "user";
-      await chatbotAdminApi.upsertUser(token, { ...userForm, role: assignedRole, email: userForm.email.trim().toLowerCase(), client_slug: assignedClientSlug, password: userForm.password?.trim() || undefined });
+      const assignedRole = userClientMode === "global" ? "admin" : "user";
+      const response = await chatbotAdminApi.upsertUser(token, { ...userForm, role: assignedRole, email: userForm.email.trim().toLowerCase(), client_slug: assignedClientSlug, password: userForm.password?.trim() || undefined });
       setUserForm({ email: "", role: "user", client_slug: "", is_active: true, password: "" });
       setNewUserClientForm({ account_name: "", title: "", allowed_origins: "", primary_color: "#00cc99", rate_limit_per_minute: 30 });
       await loadPortal();
-      setNotice(lang === "es" ? "Usuario guardado" : "User saved");
+      setNotice(response.user._invitation_email_sent === false ? (lang === "es" ? "Usuario guardado, pero no se pudo enviar el email. Revisa SMTP en el backend." : "User saved, but the email could not be sent. Check backend SMTP.") : (lang === "es" ? "Usuario guardado" : "User saved"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save user");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleUserActive = async (target: AppUser) => {
+    if (!token) return;
+    setSaving(true);
+    setError("");
+    try {
+      await chatbotAdminApi.upsertUser(token, {
+        ...target,
+        is_active: !target.is_active,
+      });
+      await loadPortal();
+      setNotice(lang === "es" ? "Usuario actualizado" : "User updated");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update user");
     } finally {
       setSaving(false);
     }
@@ -475,6 +495,8 @@ export default function AdminDashboard() {
   const hasActivity30d = activity30d.some((item) => item.messages > 0 || item.tokens > 0);
   const maxDailyMessages = Math.max(...activity30d.map((item) => item.messages), 1);
   const displayClient = actingUser?.client_slug || selectedSlug || t.global;
+  const employeeUsers = users.filter((item) => !item.client_slug);
+  const clientUsers = users.filter((item) => item.client_slug);
 
   if (!token || !user) return <Navigate to={`/${lang}/login`} replace />;
 
@@ -660,21 +682,34 @@ export default function AdminDashboard() {
                 <h2 className="mb-5 text-xl font-semibold">{t.createUser}</h2>
                 <div className="space-y-3">
                   <div className="grid grid-cols-3 border border-white/10 bg-slate-950 p-1 text-sm">
-                    {(["existing", "new", "global"] as const).map((mode) => <button key={mode} type="button" onClick={() => { setUserClientMode(mode); if (mode !== "global") setUserForm({ ...userForm, role: "user" }); }} className={`px-3 py-2 font-semibold ${userClientMode === mode ? "bg-[var(--color-primary)] text-slate-950" : "text-slate-400 hover:text-white"}`}>{mode === "existing" ? t.existingClient : mode === "new" ? t.newClient : t.global}</button>)}
+                    {(["existing", "new", "global"] as const).map((mode) => <button key={mode} type="button" onClick={() => { setUserClientMode(mode); setUserForm({ ...userForm, role: mode === "global" ? "admin" : "user" }); }} className={`px-3 py-2 font-semibold ${userClientMode === mode ? "bg-[var(--color-primary)] text-slate-950" : "text-slate-400 hover:text-white"}`}>{mode === "existing" ? t.existingClient : mode === "new" ? t.newClient : t.global}</button>)}
                   </div>
                   {userClientMode === "existing" && <Select className="w-full" value={userForm.client_slug || ""} onChange={(e) => setUserForm({ ...userForm, client_slug: e.target.value })}><option value="">{t.selectClient}</option>{clients.map((client) => <option key={client.client_slug} value={client.client_slug}>{client.client_slug}</option>)}</Select>}
                   {userClientMode === "new" && <div className="space-y-3 border border-white/10 bg-slate-950 p-3">
                     <TextInput className="w-full" placeholder={t.accountName} value={newUserClientForm.account_name} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, account_name: e.target.value })} />
                     <textarea className="w-full border border-white/10 bg-[#050711] p-4 font-mono text-sm text-white" rows={4} placeholder="https://cliente.com" value={newUserClientForm.allowed_origins} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, allowed_origins: e.target.value })} />
                   </div>}
-                  {userClientMode === "global" && <Select className="w-full" value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value as "admin" | "user" })}><option value="user">user</option><option value="admin">admin</option></Select>}
+                  {userClientMode === "global" && <div className="border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">Admin</div>}
                   <TextInput className="w-full" placeholder="email@cliente.com" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} />
                   <TextInput type="password" className="w-full" placeholder={t.tempPassword} value={userForm.password || ""} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} />
                   <label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={userForm.is_active} onChange={(e) => setUserForm({ ...userForm, is_active: e.target.checked })} /> {t.active}</label>
                   <button onClick={saveUser} disabled={saving} className="inline-flex items-center gap-2 bg-[var(--color-primary)] px-5 py-3 font-semibold text-slate-950 disabled:opacity-60"><Users className="h-4 w-4" />{t.saveUser}</button>
                 </div>
               </section>
-              <section className="overflow-hidden border border-white/10 bg-white/[0.035]"><div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-slate-300">{t.users}</div><div className="divide-y divide-white/10">{users.map((item) => <div key={item.email} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-[1.2fr_0.5fr_0.7fr_0.4fr_0.5fr]"><span className="font-medium text-white">{item.email}</span><span className="text-slate-300">{item.role}</span><span className="text-slate-400">{item.client_slug || t.global}</span><span className={item.is_active ? "text-emerald-300" : "text-red-300"}>{item.is_active ? t.active : t.disabled}</span><button onClick={() => startImpersonation(item)} className="border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-[var(--color-primary)]/60">{t.viewAs}</button></div>)}</div></section>
+              <section className="space-y-5">
+                {[
+                  [lang === "es" ? "Admins (empleados)" : "Admins (employees)", employeeUsers],
+                  [lang === "es" ? "Clientes" : "Clients", clientUsers],
+                ].map(([title, list]) => (
+                  <div key={title as string} className="overflow-hidden border border-white/10 bg-white/[0.035]">
+                    <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-slate-300">{title as string}</div>
+                    <div className="divide-y divide-white/10">{(list as AppUser[]).map((item) => {
+                      const isOwner = item.email.toLowerCase() === OWNER_EMAIL;
+                      return <div key={item.email} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-[1.1fr_0.55fr_0.65fr_0.45fr_0.8fr]"><span className="font-medium text-white">{item.email}{isOwner ? " · Owner" : ""}</span><span className="text-slate-300">{item.role}</span><span className="text-slate-400">{item.client_slug || t.global}</span><span className={item.is_active ? "text-emerald-300" : "text-red-300"}>{item.is_active ? t.active : t.disabled}</span><div className="flex flex-wrap gap-2"><button onClick={() => startImpersonation(item)} className="border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-[var(--color-primary)]/60">{t.viewAs}</button><button onClick={() => void toggleUserActive(item)} disabled={isOwner || saving} className="border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-[var(--color-primary)]/60 disabled:cursor-not-allowed disabled:opacity-40">{item.is_active ? (lang === "es" ? "Desactivar" : "Deactivate") : (lang === "es" ? "Activar" : "Activate")}</button></div></div>;
+                    })}{!(list as AppUser[]).length && <div className="px-4 py-6 text-sm text-slate-500">{t.noData}</div>}</div>
+                  </div>
+                ))}
+              </section>
             </div>
           )}
 
@@ -702,11 +737,10 @@ export default function AdminDashboard() {
             </div>
           </section>}
 
-          {section === "admin" && isAdmin && <section className="grid gap-5 xl:grid-cols-3"><button onClick={switchLang} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><Languages className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.settings}</h2><p className="mt-2 text-sm text-slate-500">{lang === "es" ? "EN" : "ES"}</p></button><button onClick={toggleTheme} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50">{theme === "dark" ? <Sun className="mb-4 h-6 w-6 text-[var(--color-primary)]" /> : <Moon className="mb-4 h-6 w-6 text-[var(--color-primary)]" />}<h2 className="font-semibold">{theme === "dark" ? t.light : t.dark}</h2><p className="mt-2 text-sm text-slate-500">{theme === "dark" ? t.dark : t.light}</p></button><button onClick={() => void syncRegistry("current")} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><RefreshCw className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.syncRegistry}</h2><p className="mt-2 text-sm text-slate-500">Supabase → backend actual</p></button><button onClick={publishLocalClients} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><DatabaseZap className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.publishLocal}</h2><p className="mt-2 text-sm text-slate-500">Backend actual → Supabase</p></button><button onClick={() => void syncRegistry("dev")} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><ShieldCheck className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.replicateDev}</h2><p className="mt-2 text-sm text-slate-500">Supabase → http://127.0.0.1:8000</p></button></section>}
+          {section === "admin" && <section className="grid gap-5 xl:grid-cols-3"><button onClick={switchLang} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><Languages className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.settings}</h2><p className="mt-2 text-sm text-slate-500">{lang === "es" ? "Español → English" : "English → Español"}</p></button><button onClick={toggleTheme} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50">{theme === "dark" ? <Moon className="mb-4 h-6 w-6 text-[var(--color-primary)]" /> : <Sun className="mb-4 h-6 w-6 text-[var(--color-primary)]" />}<h2 className="font-semibold">{t.theme}</h2><p className="mt-2 text-sm text-slate-500">{theme === "dark" ? t.dark : t.light}</p></button>{isAdmin && <button onClick={() => void syncRegistry("current")} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><RefreshCw className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.syncRegistry}</h2><p className="mt-2 text-sm text-slate-500">Supabase → backend actual</p></button>}{isAdmin && <button onClick={publishLocalClients} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><DatabaseZap className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.publishLocal}</h2><p className="mt-2 text-sm text-slate-500">Backend actual → Supabase</p></button>}{isAdmin && <button onClick={() => void syncRegistry("dev")} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><ShieldCheck className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.replicateDev}</h2><p className="mt-2 text-sm text-slate-500">Supabase → http://127.0.0.1:8000</p></button>}</section>}
 
           {section === "clients" && !isAdmin && <Navigate to={`/${lang}/admin`} replace />}
           {section === "users" && !isAdmin && <Navigate to={`/${lang}/admin`} replace />}
-          {section === "admin" && !isAdmin && <Navigate to={`/${lang}/admin`} replace />}
           {section === "demo" && !isAdmin && <Navigate to={`/${lang}/admin`} replace />}
 
         </main>

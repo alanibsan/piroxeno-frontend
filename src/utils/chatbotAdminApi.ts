@@ -41,6 +41,7 @@ export type AppUser = {
   client_slug: string | null;
   is_active: boolean;
   created_at?: string;
+  _invitation_email_sent?: boolean;
 };
 
 export type UpsertAppUser = AppUser & {
