@@ -2,7 +2,6 @@ import fondo from "../assets/fondito.png";
 import logoBlanco from "../assets/partners/LOGO_BLANCO.png";
 import recreaLogo from "../assets/partners/recrea.jpg";
 import rockinRobinLogo from "../assets/partners/rockinrobin.png";
-import sazonLogo from "../assets/partners/sazon.jpg";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import DemoEmailInput from "../components/DemoEmailInput";
@@ -173,11 +172,6 @@ export default function Landing() {
       name: "Rockin Robin",
       logo: rockinRobinLogo,
       className: "h-14 w-auto object-contain",
-    },
-    {
-      name: "Sazon",
-      logo: sazonLogo,
-      className: "h-16 w-auto object-contain",
     },
   ];
 
