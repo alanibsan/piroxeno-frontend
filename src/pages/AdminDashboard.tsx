@@ -1,32 +1,36 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
   BookOpen,
   Check,
   Copy,
-  DatabaseZap,
-  Gauge,
   Globe2,
-  Languages,
-  Moon,
-  MoreVertical,
   LayoutDashboard,
   Loader2,
   LogOut,
   MessageSquareText,
   RefreshCw,
-  Search,
   Send,
   Settings2,
   Smartphone,
-  ShieldCheck,
   Sparkles,
-  Sun,
   Users,
 } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Activity30DaySection } from "../components/admin/Activity30DaySection";
-import { PortalLoading, Select, StatCard, TextInput } from "../components/admin/PortalPrimitives";
+import { ConversationsSection } from "../components/admin/ConversationsSection";
+import { OverviewSection } from "../components/admin/OverviewSection";
+import { PortalFilters } from "../components/admin/PortalFilters";
+import { PortalLoading, TextInput } from "../components/admin/PortalPrimitives";
+import { SettingsSection } from "../components/admin/SettingsSection";
+import { UsersSection } from "../components/admin/UsersSection";
+import {
+  arrayToLines,
+  blankLast30Days,
+  getLabels,
+  linesToArray,
+  slugifyAccountName,
+  type Section,
+  type UserClientMode,
+} from "../components/admin/dashboardUtils";
 import { clearAdminToken, getAdminToken, getAdminUser } from "../utils/adminSession";
 import {
   chatbotAdminApi,
@@ -39,134 +43,7 @@ import {
   type PortalSummary,
   type UpsertAppUser,
 } from "../utils/chatbotAdminApi";
-import { useLang, type Lang } from "../utils/i18n";
-
-type Section = "overview" | "conversations" | "clients" | "users" | "docs" | "admin" | "demo";
-type UserClientMode = "global" | "existing" | "new";
-const OWNER_EMAIL = "alan@piroxeno.com";
-
-
-function linesToArray(value: string) {
-  return value.split("\n").map((item) => item.trim()).filter(Boolean);
-}
-
-function arrayToLines(value?: string[]) {
-  return (value || []).join("\n");
-}
-
-function slugifyAccountName(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 64);
-}
-
-function formatNumber(value?: number | null) {
-  return new Intl.NumberFormat().format(value || 0);
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-}
-
-function blankLast30Days() {
-  const today = new Date();
-  return Array.from({ length: 30 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - 29 + index);
-    return {
-      date: date.toISOString().slice(0, 10),
-      conversations: 0,
-      messages: 0,
-      assistant_messages: 0,
-      user_messages: 0,
-      tokens: 0,
-      avg_latency_ms: 0,
-    };
-  });
-}
-
-function getLabels(lang: Lang) {
-  const es = lang === "es";
-  return {
-    app: es ? "Portal Piroxeno" : "Piroxeno Portal",
-    subtitle: es ? "Operación, métricas y conversaciones de tus asistentes." : "Operations, metrics and conversations for your assistants.",
-    overview: es ? "Dashboard" : "Dashboard",
-    conversations: es ? "Conversaciones" : "Conversations",
-    clients: es ? "Clientes" : "Clients",
-    users: es ? "Usuarios" : "Users",
-    docs: es ? "Documentación" : "Documentation",
-    admin: es ? "Ajustes" : "Settings",
-    demo: es ? "DEMO" : "DEMO",
-    refresh: es ? "Actualizar" : "Refresh",
-    logout: es ? "Salir" : "Log out",
-    active: es ? "Activo" : "Active",
-    disabled: es ? "Pausado" : "Paused",
-    allClients: es ? "Todos los clientes" : "All clients",
-    selectClient: es ? "Selecciona cliente" : "Select client",
-    start: es ? "Desde" : "From",
-    end: es ? "Hasta" : "To",
-    conversationsKpi: es ? "Conversaciones" : "Conversations",
-    messages: es ? "Mensajes" : "Messages",
-    assistant: es ? "Assistant" : "Assistant",
-    userMessages: es ? "Usuario" : "User",
-    tokens: es ? "Tokens" : "Tokens",
-    latency: es ? "Latencia media" : "Avg latency",
-    client: es ? "Cliente" : "Client",
-    lastMessage: es ? "Último mensaje" : "Last message",
-    created: es ? "Creada" : "Created",
-    openedConversation: es ? "Detalle de conversación" : "Conversation detail",
-    noConversation: es ? "Selecciona una conversación" : "Select a conversation",
-    copySnippet: es ? "Copiar snippet" : "Copy snippet",
-    copied: es ? "Copiado" : "Copied",
-    snippet: es ? "Snippet embebible" : "Embeddable snippet",
-    accountName: es ? "Account Name" : "Account Name",
-    domains: es ? "Whitelist de dominios" : "Domain whitelist",
-    rateLimit: es ? "Rate limit por minuto" : "Rate limit per minute",
-    save: es ? "Guardar cambios" : "Save changes",
-    createClient: es ? "Crear cliente" : "Create client",
-    createdClient: es ? "Cliente creado" : "Client created",
-    createUser: es ? "Crear usuario" : "Create user",
-    existingClient: es ? "Cliente existente" : "Existing client",
-    newClient: es ? "Cliente nuevo" : "New client",
-    global: es ? "Admin" : "Admin",
-    tempPassword: es ? "Contraseña temporal (min. 10 caracteres)" : "Temporary password (min. 10 chars)",
-    saveUser: es ? "Guardar usuario" : "Save user",
-    syncRegistry: es ? "Sincronizar registry" : "Sync registry",
-    publishLocal: es ? "Publicar locales" : "Publish locals",
-    replicateDev: es ? "Replicar en dev" : "Replicate dev",
-    roleAdmin: es ? "Admin" : "Admin",
-    roleUser: es ? "Usuario" : "User",
-    role: es ? "Rol" : "Role",
-    search: es ? "Buscar" : "Search",
-    light: es ? "Claro" : "Light",
-    dark: es ? "Oscuro" : "Dark",
-    impersonating: es ? "Viendo como" : "Viewing as",
-    stopImpersonating: es ? "Volver a admin" : "Back to admin",
-    viewAs: "Impersonate",
-    demoPrompt: es ? "Prompt de demo" : "Demo prompt",
-    resetDemo: es ? "Resetear demo" : "Reset demo",
-    typeMessage: es ? "Escribe un mensaje" : "Type a message",
-    portalFor: es ? "Piroxeno x" : "Piroxeno x",
-    settings: es ? "Idioma" : "Language",
-    theme: es ? "Tema" : "Theme",
-    activity30d: es ? "Actividad de los ultimos 30 dias" : "Last 30 days activity",
-    noData: es ? "Sin datos todavía" : "No data yet",
-    metricHints: {
-      conversations: es ? "Conversaciones iniciadas dentro del periodo seleccionado. Una conversación agrupa todos los mensajes de una misma sesión o visitante." : "Conversations started in the selected period. A conversation groups all messages from the same session or visitor.",
-      messages: es ? "Suma de todos los mensajes intercambiados: preguntas del usuario final y respuestas generadas por el assistant." : "Total exchanged messages: end-user questions plus assistant responses.",
-      assistant: es ? "Cantidad de respuestas que generó la IA. Ayuda a medir cuánto trabajo está absorbiendo el assistant." : "Number of AI-generated replies. Useful to understand how much work the assistant is handling.",
-      user: es ? "Cantidad de mensajes enviados por usuarios finales. Indica demanda, intención y volumen real de interacción." : "Messages sent by end users. Indicates demand, intent and real interaction volume.",
-      tokens: es ? "Consumo total de tokens registrado por el modelo. Es la métrica base para estimar costo de uso de IA." : "Total model tokens recorded. This is the baseline metric for estimating AI usage cost.",
-      latency: es ? "Tiempo promedio que tarda el assistant en responder. Mientras menor sea, más fluida se siente la conversación." : "Average time the assistant takes to respond. Lower latency makes the conversation feel smoother.",
-    },
-  };
-}
+import { useLang } from "../utils/i18n";
 
 export default function AdminDashboard() {
   const lang = useLang();
@@ -539,88 +416,11 @@ export default function AdminDashboard() {
           {notice && <div className="mb-4 border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{notice}</div>}
           {impersonatedUser && <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 border px-4 py-3 text-sm font-semibold shadow-lg ${theme === "dark" ? "border-amber-300/30 bg-amber-300/10 text-amber-100 shadow-black/20" : "border-amber-500/35 bg-amber-100 text-amber-950 shadow-amber-900/10"}`}><span>{t.impersonating}: {impersonatedUser.email}</span><button onClick={stopImpersonation} className={`border px-3 py-2 text-xs font-bold ${theme === "dark" ? "border-amber-200/30 hover:bg-amber-200/10" : "border-amber-600/30 hover:bg-amber-200"}`}>{t.stopImpersonating}</button></div>}
 
-          {(section === "overview" || section === "conversations") && (
-            <div className={`mb-5 grid gap-3 ${actingUser?.role === "admin" ? "md:grid-cols-[1fr_160px_160px_auto] xl:grid-cols-[280px_180px_180px_auto]" : "md:grid-cols-[160px_160px_auto]"}`}>
-              {actingUser?.role === "admin" && <Select value={selectedSlug} onChange={(e) => setSelectedSlug(e.target.value)}>
-                <option value="">{t.allClients}</option>
-                {clients.map((client) => <option key={client.client_slug} value={client.client_slug}>{client.client_slug}</option>)}
-              </Select>}
-              <TextInput type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} aria-label={t.start} />
-              <TextInput type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} aria-label={t.end} />
-              <button onClick={() => { setDateStart(""); setDateEnd(""); }} className="flex h-11 w-11 items-center justify-center border border-white/10 text-slate-400 hover:border-white/25 hover:text-white" aria-label="Reset" title="Reset"><RefreshCw className="h-3.5 w-3.5" /></button>
-            </div>
-          )}
+          {(section === "overview" || section === "conversations") && <PortalFilters labels={t} actingUser={actingUser} clients={clients} selectedSlug={selectedSlug} setSelectedSlug={setSelectedSlug} dateStart={dateStart} setDateStart={setDateStart} dateEnd={dateEnd} setDateEnd={setDateEnd} />}
 
-          {section === "overview" && (
-            <div className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-                <StatCard icon={MessageSquareText} label={t.conversationsKpi} value={formatNumber(summary?.conversation_count)} hint={t.metricHints.conversations} />
-                <StatCard icon={Activity} label={t.messages} value={formatNumber(summary?.message_count)} hint={t.metricHints.messages} />
-                <StatCard icon={Sparkles} label={t.assistant} value={formatNumber(summary?.assistant_messages)} hint={t.metricHints.assistant} />
-                <StatCard icon={Users} label={t.userMessages} value={formatNumber(summary?.user_messages)} hint={t.metricHints.user} />
-                <StatCard icon={DatabaseZap} label={t.tokens} value={formatNumber(summary?.total_tokens)} hint={t.metricHints.tokens} />
-                <StatCard icon={Gauge} label={t.latency} value={`${formatNumber(summary?.avg_latency_ms)} ms`} hint={t.metricHints.latency} />
-              </div>
+          {section === "overview" && <OverviewSection summary={summary} activity30d={activity30d} hasActivity30d={hasActivity30d} maxDailyMessages={maxDailyMessages} labels={t} lang={lang} loading={loading} />}
 
-              <Activity30DaySection activity30d={activity30d} hasActivity30d={hasActivity30d} maxDailyMessages={maxDailyMessages} labels={t} lang={lang} formatNumber={formatNumber} />
-
-              <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-                <section className="border border-white/10 bg-white/[0.035] p-5">
-                  <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><LayoutDashboard className="h-5 w-5 text-[var(--color-primary)]" /> {t.overview}</h2>
-                  <div className="space-y-3">
-                    {(summary?.by_client || []).slice(0, 8).map((item) => {
-                      const max = Math.max(...(summary?.by_client || [{ messages: 1 }]).map((row) => row.messages), 1);
-                      return (
-                        <div key={item.client_slug}>
-                          <div className="mb-1 flex justify-between text-sm"><span>{item.client_slug}</span><span className="text-slate-500">{formatNumber(item.messages)} msg · {formatNumber(item.tokens)} tok</span></div>
-                          <div className="h-2 bg-white/10"><div className="h-2 bg-[var(--color-primary)]" style={{ width: `${Math.max(4, (item.messages / max) * 100)}%` }} /></div>
-                        </div>
-                      );
-                    })}
-                    {!summary?.by_client?.length && <p className="text-sm text-slate-500">{loading ? "" : t.noData}</p>}
-                  </div>
-                </section>
-                <section className="border border-white/10 bg-white/[0.035] p-5">
-                  <h2 className="mb-4 text-lg font-semibold">KPIs</h2>
-                  <div className="grid gap-3 text-sm text-slate-300">
-                    <div className="flex justify-between border-b border-white/10 pb-2"><span>Tokens / conversación</span><span>{summary?.conversation_count ? formatNumber(Math.round(summary.total_tokens / summary.conversation_count)) : 0}</span></div>
-                    <div className="flex justify-between"><span>Mensajes / conversación</span><span>{summary?.conversation_count ? (summary.message_count / summary.conversation_count).toFixed(1) : 0}</span></div>
-                  </div>
-                </section>
-              </div>
-            </div>
-          )}
-
-          {section === "conversations" && (
-            <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-              <section className="border border-white/10 bg-white/[0.035]">
-                <div className="flex items-center gap-2 border-b border-white/10 p-4">
-                  <Search className="h-4 w-4 text-slate-500" />
-                  <input value={conversationQuery} onChange={(e) => setConversationQuery(e.target.value)} placeholder={t.search} className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600" />
-                </div>
-                <div className="max-h-[640px] divide-y divide-white/10 overflow-auto">
-                  {filteredConversations.map((conversation) => (
-                    <button key={conversation.id} onClick={() => void loadConversationMessages(conversation.id)} className={`w-full p-4 text-left hover:bg-white/[0.045] ${selectedConversationId === conversation.id ? "bg-white/[0.07]" : ""}`}>
-                      <div className="flex items-center justify-between gap-3"><span className="font-semibold">{conversation.client_slug}</span><span className="text-xs text-slate-500">{formatDate(conversation.last_message_at || conversation.updated_at)}</span></div>
-                      <p className="mt-2 line-clamp-2 text-sm text-slate-400">{conversation.last_message || conversation.session_id}</p>
-                      <p className="mt-2 text-xs text-slate-600">{formatNumber(conversation.message_count)} mensajes · {formatNumber(conversation.total_tokens)} tokens</p>
-                    </button>
-                  ))}
-                </div>
-              </section>
-              <section className="border border-white/10 bg-white/[0.035] p-5">
-                <h2 className="mb-4 text-lg font-semibold">{selectedConversationId ? t.openedConversation : t.noConversation}</h2>
-                <div className="max-h-[640px] space-y-3 overflow-auto">
-                  {messages.map((message) => (
-                    <div key={message.id} className={`border p-4 ${message.role === "assistant" ? "border-[var(--color-primary)]/20 bg-[var(--color-primary)]/8" : "border-white/10 bg-slate-950"}`}>
-                      <div className="mb-2 flex justify-between gap-3 text-xs uppercase tracking-[0.14em] text-slate-500"><span>{message.role}</span><span>{formatDate(message.created_at)}</span></div>
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-slate-200">{message.content}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
-          )}
+          {section === "conversations" && <ConversationsSection labels={t} conversationQuery={conversationQuery} setConversationQuery={setConversationQuery} conversations={filteredConversations} selectedConversationId={selectedConversationId} loadConversationMessages={(conversationId) => void loadConversationMessages(conversationId)} messages={messages} />}
 
           {section === "clients" && isAdmin && (
             <div className="grid gap-5 xl:grid-cols-[320px_1fr]">
@@ -646,43 +446,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {section === "users" && isAdmin && (
-            <div className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
-              <section className="border border-white/10 bg-white/[0.035] p-5">
-                <h2 className="mb-5 text-xl font-semibold">{t.createUser}</h2>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 border border-white/10 bg-slate-950 p-1 text-sm">
-                    {(["existing", "new", "global"] as const).map((mode) => <button key={mode} type="button" onClick={() => { setUserClientMode(mode); setUserForm({ ...userForm, role: mode === "global" ? "admin" : "user" }); }} className={`px-3 py-2 font-semibold ${userClientMode === mode ? "bg-[var(--color-primary)] text-slate-950" : "text-slate-400 hover:text-white"}`}>{mode === "existing" ? t.existingClient : mode === "new" ? t.newClient : t.global}</button>)}
-                  </div>
-                  {userClientMode === "existing" && <Select className="w-full" value={userForm.client_slug || ""} onChange={(e) => setUserForm({ ...userForm, client_slug: e.target.value })}><option value="">{t.selectClient}</option>{clients.map((client) => <option key={client.client_slug} value={client.client_slug}>{client.client_slug}</option>)}</Select>}
-                  {userClientMode === "new" && <div className="space-y-3 border border-white/10 bg-slate-950 p-3">
-                    <TextInput className="w-full" placeholder={t.accountName} value={newUserClientForm.account_name} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, account_name: e.target.value })} />
-                    <textarea className="w-full border border-white/10 bg-[#050711] p-4 font-mono text-sm text-white" rows={4} placeholder="https://cliente.com" value={newUserClientForm.allowed_origins} onChange={(e) => setNewUserClientForm({ ...newUserClientForm, allowed_origins: e.target.value })} />
-                  </div>}
-                  {userClientMode === "global" && <div className="border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">Admin</div>}
-                  <TextInput className="w-full" placeholder="email@cliente.com" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} />
-                  <TextInput type="password" className="w-full" placeholder={t.tempPassword} value={userForm.password || ""} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} />
-                  <label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={userForm.is_active} onChange={(e) => setUserForm({ ...userForm, is_active: e.target.checked })} /> {t.active}</label>
-                  <button onClick={saveUser} disabled={saving} className="inline-flex items-center gap-2 bg-[var(--color-primary)] px-5 py-3 font-semibold text-slate-950 disabled:opacity-60"><Users className="h-4 w-4" />{t.saveUser}</button>
-                </div>
-              </section>
-              <section className="space-y-5">
-                {[
-                  [lang === "es" ? "Admins (empleados)" : "Admins (employees)", employeeUsers],
-                  [lang === "es" ? "Clientes" : "Clients", clientUsers],
-                ].map(([title, list]) => (
-                  <div key={title as string} className="overflow-hidden border border-white/10 bg-white/[0.035]">
-                    <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-slate-300">{title as string}</div>
-                    <div className="divide-y divide-white/10">{(list as AppUser[]).map((item) => {
-                      const isOwner = item.email.toLowerCase() === OWNER_EMAIL;
-                      const menuKey = `${title}-${item.email}`;
-                      return <div key={item.email} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-[1.1fr_0.55fr_0.65fr_0.45fr_44px]"><span className="font-medium text-white">{item.email}{isOwner ? " · Owner" : ""}</span><span className="text-slate-300">{item.role}</span><span className="text-slate-400">{item.client_slug || t.global}</span><span className={item.is_active ? "text-emerald-300" : "text-red-300"}>{item.is_active ? t.active : t.disabled}</span><div className="relative flex justify-end"><button onClick={() => setOpenUserMenu(openUserMenu === menuKey ? "" : menuKey)} className="flex h-9 w-9 items-center justify-center border border-white/10 text-slate-400 hover:border-[var(--color-primary)]/60 hover:text-white" aria-label="Actions"><MoreVertical className="h-4 w-4" /></button>{openUserMenu === menuKey && <div className="absolute right-0 top-10 z-30 w-44 border border-white/10 bg-slate-950 p-1 shadow-2xl shadow-black/30"><button onClick={() => { setOpenUserMenu(""); startImpersonation(item); }} className="block w-full px-3 py-2 text-left text-xs font-semibold text-slate-300 hover:bg-white/10">{t.viewAs}</button><button onClick={() => { setOpenUserMenu(""); void toggleUserActive(item); }} disabled={isOwner || saving} className="block w-full px-3 py-2 text-left text-xs font-semibold text-slate-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">{item.is_active ? (lang === "es" ? "Desactivar" : "Deactivate") : (lang === "es" ? "Activar" : "Activate")}</button></div>}</div></div>;
-                    })}{!(list as AppUser[]).length && <div className="px-4 py-6 text-sm text-slate-500">{t.noData}</div>}</div>
-                  </div>
-                ))}
-              </section>
-            </div>
-          )}
+          {section === "users" && isAdmin && <UsersSection labels={t} lang={lang} clients={clients} employeeUsers={employeeUsers} clientUsers={clientUsers} userClientMode={userClientMode} setUserClientMode={setUserClientMode} userForm={userForm} setUserForm={setUserForm} newUserClientForm={newUserClientForm} setNewUserClientForm={setNewUserClientForm} saveUser={saveUser} startImpersonation={startImpersonation} toggleUserActive={toggleUserActive} saving={saving} openUserMenu={openUserMenu} setOpenUserMenu={setOpenUserMenu} />}
 
           {section === "docs" && <section className="grid gap-4 lg:grid-cols-2">{docs.map((doc) => <article key={doc.title} className="border border-white/10 bg-white/[0.035] p-5"><div className="mb-4 flex h-10 w-10 items-center justify-center bg-[var(--color-primary)]/15 text-[var(--color-primary)]"><BookOpen className="h-5 w-5" /></div><h2 className="text-xl font-semibold">{doc.title}</h2><p className="mt-3 leading-7 text-slate-400">{doc.body}</p></article>)}</section>}
 
@@ -708,7 +472,7 @@ export default function AdminDashboard() {
             </div>
           </section>}
 
-          {section === "admin" && <section className="grid gap-5 xl:grid-cols-3"><button onClick={switchLang} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><Languages className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.settings}</h2><p className="mt-2 text-sm text-slate-500">{lang === "es" ? "Español → English" : "English → Español"}</p></button><button onClick={toggleTheme} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50">{theme === "dark" ? <Moon className="mb-4 h-6 w-6 text-[var(--color-primary)]" /> : <Sun className="mb-4 h-6 w-6 text-[var(--color-primary)]" />}<h2 className="font-semibold">{t.theme}</h2><p className="mt-2 text-sm text-slate-500">{theme === "dark" ? t.dark : t.light}</p></button>{isAdmin && <button onClick={() => void syncRegistry("current")} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><RefreshCw className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.syncRegistry}</h2><p className="mt-2 text-sm text-slate-500">Supabase → backend actual</p></button>}{isAdmin && <button onClick={publishLocalClients} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><DatabaseZap className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.publishLocal}</h2><p className="mt-2 text-sm text-slate-500">Backend actual → Supabase</p></button>}{isAdmin && <button onClick={() => void syncRegistry("dev")} disabled={saving} className="border border-white/10 bg-white/[0.035] p-5 text-left hover:border-[var(--color-primary)]/50"><ShieldCheck className="mb-4 h-6 w-6 text-[var(--color-primary)]" /><h2 className="font-semibold">{t.replicateDev}</h2><p className="mt-2 text-sm text-slate-500">Supabase → http://127.0.0.1:8000</p></button>}</section>}
+          {section === "admin" && <SettingsSection labels={t} lang={lang} theme={theme} isAdmin={isAdmin} saving={saving} switchLang={switchLang} toggleTheme={toggleTheme} syncRegistry={(target) => void syncRegistry(target)} publishLocalClients={() => void publishLocalClients()} />}
 
           {section === "clients" && !isAdmin && <Navigate to={`/${lang}/admin`} replace />}
           {section === "users" && !isAdmin && <Navigate to={`/${lang}/admin`} replace />}
