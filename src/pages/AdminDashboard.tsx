@@ -13,10 +13,12 @@ import {
   Settings2,
   Smartphone,
   Sparkles,
+  Target,
   Users,
 } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { ConversationsSection } from "../components/admin/ConversationsSection";
+import { LeadsSection } from "../components/admin/LeadsSection";
 import { OverviewSection } from "../components/admin/OverviewSection";
 import { PortalFilters } from "../components/admin/PortalFilters";
 import { PortalLoading, TextInput } from "../components/admin/PortalPrimitives";
@@ -39,8 +41,10 @@ import {
   type AppUser,
   type ClientDetail,
   type ClientSummary,
+  type LeadColumn,
   type PortalConversation,
   type PortalDoc,
+  type PortalLead,
   type PortalMessage,
   type PortalSummary,
   type UpsertAppUser,
@@ -67,6 +71,7 @@ export default function AdminDashboard() {
   const [dateEnd, setDateEnd] = useState("");
   const [summary, setSummary] = useState<PortalSummary | null>(null);
   const [conversations, setConversations] = useState<PortalConversation[]>([]);
+  const [leads, setLeads] = useState<PortalLead[]>([]);
   const [conversationQuery, setConversationQuery] = useState("");
   const [selectedConversationId, setSelectedConversationId] = useState("");
   const [messages, setMessages] = useState<PortalMessage[]>([]);
@@ -88,6 +93,7 @@ export default function AdminDashboard() {
   const [enabledDraft, setEnabledDraft] = useState(true);
   const [rateLimitDraft, setRateLimitDraft] = useState(30);
   const [promptDraft, setPromptDraft] = useState("");
+  const [leadColumnsDraft, setLeadColumnsDraft] = useState("");
 
   const [userClientMode, setUserClientMode] = useState<UserClientMode>("existing");
   const [newUserClientForm, setNewUserClientForm] = useState({ account_name: "", title: "", allowed_origins: "", primary_color: "#00cc99", rate_limit_per_minute: 30 });
@@ -96,6 +102,7 @@ export default function AdminDashboard() {
   const navItems = [
     ["overview", LayoutDashboard, t.overview, true],
     ["conversations", MessageSquareText, t.conversations, true],
+    ["leads", Target, t.leads, true],
     ["clients", Globe2, t.clients, isAdmin],
     ["users", Users, t.users, isAdmin],
     ["docs", BookOpen, t.docs, true],
@@ -109,6 +116,9 @@ export default function AdminDashboard() {
     setError("");
     setNotice("");
   };
+
+  const leadColumnsToLines = (columns?: LeadColumn[]) => (columns || []).map((column) => column.label).join("\n");
+  const linesToLeadColumns = (value: string) => linesToArray(value).map((label) => ({ key: slugifyAccountName(label), label })).filter((column) => column.key);
 
   useEffect(() => {
     clearAlerts();
@@ -125,14 +135,16 @@ export default function AdminDashboard() {
       setClients(nextClients);
       const nextSlug = actingUser?.role === "admin" ? selectedSlug : nextClients[0]?.client_slug || "";
       if (actingUser?.role !== "admin" && nextSlug) setSelectedSlug(nextSlug);
-      const [summaryResponse, conversationResponse, docsResponse] = await Promise.all([
+      const [summaryResponse, conversationResponse, docsResponse, leadsResponse] = await Promise.all([
         chatbotAdminApi.portalSummary(token, { ...metricParams, client_slug: actingUser?.role === "admin" ? metricParams.client_slug : nextSlug || undefined }),
         chatbotAdminApi.portalConversations(token, { ...metricParams, client_slug: actingUser?.role === "admin" ? metricParams.client_slug : nextSlug || undefined, limit: 80 }),
         chatbotAdminApi.portalDocs(token, lang, impersonateUserId),
+        chatbotAdminApi.portalLeads(token, { ...metricParams, client_slug: actingUser?.role === "admin" ? metricParams.client_slug : nextSlug || undefined, limit: 200 }).catch(() => ({ leads: [] })),
       ]);
       setSummary(summaryResponse);
       setConversations(conversationResponse.conversations);
       setDocs(docsResponse.docs);
+      setLeads(leadsResponse.leads);
       if (isAdmin) {
         try {
           const usersResponse = await chatbotAdminApi.listUsers(token);
@@ -150,26 +162,32 @@ export default function AdminDashboard() {
 
   const loadClientDetail = async (clientSlug: string) => {
     if (!token || !clientSlug || !isAdmin) return;
-    const [clientDetail, clientUsage] = await Promise.all([
-      chatbotAdminApi.getClient(token, clientSlug),
-      chatbotAdminApi.getUsage(token, clientSlug),
-    ]);
-    setDetail(clientDetail);
-    setSummary((current) => current || {
-      scope: clientSlug,
-      conversation_count: clientUsage.conversation_count,
-      message_count: clientUsage.message_count,
-      assistant_messages: clientUsage.assistant_messages,
-      user_messages: clientUsage.user_messages,
-      total_tokens: clientUsage.total_tokens,
-      avg_latency_ms: 0,
-      by_client: [],
-      activity_30d: [],
-    });
-    setOriginsDraft(arrayToLines(clientDetail.config.allowed_origins));
-    setEnabledDraft(Boolean(clientDetail.config.enabled));
-    setRateLimitDraft(clientDetail.config.rate_limit_per_minute || 30);
-    setPromptDraft(clientDetail.prompt || "");
+    clearAlerts();
+    try {
+      const [clientDetail, clientUsage] = await Promise.all([
+        chatbotAdminApi.getClient(token, clientSlug),
+        chatbotAdminApi.getUsage(token, clientSlug),
+      ]);
+      setDetail(clientDetail);
+      setSummary((current) => current || {
+        scope: clientSlug,
+        conversation_count: clientUsage.conversation_count,
+        message_count: clientUsage.message_count,
+        assistant_messages: clientUsage.assistant_messages,
+        user_messages: clientUsage.user_messages,
+        total_tokens: clientUsage.total_tokens,
+        avg_latency_ms: 0,
+        by_client: [],
+        activity_30d: [],
+      });
+      setOriginsDraft(arrayToLines(clientDetail.config.allowed_origins));
+      setEnabledDraft(Boolean(clientDetail.config.enabled));
+      setRateLimitDraft(clientDetail.config.rate_limit_per_minute || 30);
+      setPromptDraft(clientDetail.prompt || "");
+      setLeadColumnsDraft(leadColumnsToLines(clientDetail.config.lead_columns));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load client");
+    }
   };
 
   useEffect(() => {
@@ -259,13 +277,26 @@ export default function AdminDashboard() {
     setSaving(true);
     clearAlerts();
     try {
+      const nextLeadColumns = linesToLeadColumns(leadColumnsDraft);
       await chatbotAdminApi.updateClientConfig(token, detail.client_slug, {
         allowed_origins: linesToArray(originsDraft),
         enabled: enabledDraft,
         rate_limit_per_minute: Number(rateLimitDraft),
         prompt: promptDraft,
+        lead_columns: nextLeadColumns,
       });
-      await loadClientDetail(detail.client_slug);
+      setClients((current) => current.map((client) => client.client_slug === detail.client_slug ? {
+        ...client,
+        enabled: enabledDraft,
+        allowed_origins: linesToArray(originsDraft),
+        rate_limit_per_minute: Number(rateLimitDraft),
+        lead_columns: nextLeadColumns,
+      } : client));
+      try {
+        await loadClientDetail(detail.client_slug);
+      } catch (reloadErr) {
+        console.warn("Client detail reload failed after save", reloadErr);
+      }
       setNotice(lang === "es" ? "Configuración guardada" : "Configuration saved");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save config");
@@ -368,7 +399,6 @@ export default function AdminDashboard() {
 
   const activity30d = summary?.activity_30d?.length ? summary.activity_30d : blankLast30Days();
   const hasActivity30d = activity30d.some((item) => item.conversations > 0 || item.messages > 0 || item.tokens > 0);
-  const maxDailyMessages = Math.max(...activity30d.map((item) => item.messages), 1);
   const displayClient = actingUser?.client_slug || selectedSlug || t.global;
   const employeeUsers = users.filter((item) => !item.client_slug);
   const clientUsers = users.filter((item) => item.client_slug);
@@ -421,11 +451,13 @@ export default function AdminDashboard() {
           {notice && <div className="mb-4 border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{notice}</div>}
           {impersonatedUser && <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 border px-4 py-3 text-sm font-semibold shadow-lg ${theme === "dark" ? "border-amber-300/30 bg-amber-300/10 text-amber-100 shadow-black/20" : "border-amber-500/35 bg-amber-100 text-amber-950 shadow-amber-900/10"}`}><span>{t.impersonating}: {impersonatedUser.email}</span><button onClick={stopImpersonation} className={`border px-3 py-2 text-xs font-bold ${theme === "dark" ? "border-amber-200/30 hover:bg-amber-200/10" : "border-amber-600/30 hover:bg-amber-200"}`}>{t.stopImpersonating}</button></div>}
 
-          {(section === "overview" || section === "conversations") && <PortalFilters labels={t} actingUser={actingUser} clients={clients} selectedSlug={selectedSlug} setSelectedSlug={setSelectedSlug} dateStart={dateStart} setDateStart={setDateStart} dateEnd={dateEnd} setDateEnd={setDateEnd} />}
+          {(section === "overview" || section === "conversations" || section === "leads") && <PortalFilters labels={t} actingUser={actingUser} clients={clients} selectedSlug={selectedSlug} setSelectedSlug={setSelectedSlug} dateStart={dateStart} setDateStart={setDateStart} dateEnd={dateEnd} setDateEnd={setDateEnd} />}
 
-          {section === "overview" && <OverviewSection summary={summary} activity30d={activity30d} hasActivity30d={hasActivity30d} maxDailyMessages={maxDailyMessages} labels={t} lang={lang} loading={loading} />}
+          {section === "overview" && <OverviewSection summary={summary} activity30d={activity30d} hasActivity30d={hasActivity30d} labels={t} lang={lang} loading={loading} />}
 
           {section === "conversations" && <ConversationsSection labels={t} conversationQuery={conversationQuery} setConversationQuery={setConversationQuery} conversations={filteredConversations} selectedConversationId={selectedConversationId} loadConversationMessages={(conversationId) => void loadConversationMessages(conversationId)} messages={messages} />}
+
+          {section === "leads" && <LeadsSection labels={t} leads={leads} clients={clients} selectedSlug={actingUser?.role === "admin" ? selectedSlug : actingUser?.client_slug || selectedSlug} />}
 
           {section === "clients" && isAdmin && (
             <div className="grid gap-5 xl:grid-cols-[320px_1fr]">
@@ -446,6 +478,7 @@ export default function AdminDashboard() {
                     <div className="space-y-4"><label className="flex items-center gap-3 border border-white/10 bg-slate-950 p-4 text-sm"><input type="checkbox" checked={enabledDraft} onChange={(e) => setEnabledDraft(e.target.checked)} /> {t.active}</label><label className="block text-sm font-semibold text-slate-300">{t.rateLimit}<TextInput type="number" min={1} value={rateLimitDraft} onChange={(e) => setRateLimitDraft(Number(e.target.value))} className="mt-2 w-full" /></label></div>
                   </div>
                   <label className="block text-sm font-semibold text-slate-300">Prompt<textarea value={promptDraft} onChange={(e) => setPromptDraft(e.target.value)} rows={12} className="mt-2 w-full border border-white/10 bg-slate-950 p-4 font-mono text-sm leading-6 text-white outline-none focus:border-[var(--color-primary)]" /></label>
+                  <label className="block text-sm font-semibold text-slate-300">{t.leadColumns}<span className="mt-1 block text-xs font-normal text-slate-500">{t.leadColumnsHelp}</span><textarea value={leadColumnsDraft} onChange={(e) => setLeadColumnsDraft(e.target.value)} rows={5} className="mt-2 w-full border border-white/10 bg-slate-950 p-4 font-mono text-sm leading-6 text-white outline-none focus:border-[var(--color-primary)]" /></label>
                   <div><div className="mb-2 flex items-center justify-between"><label className="text-sm font-semibold text-slate-300">{t.snippet}</label><button onClick={() => copyEmbed(detail.embed)} className="inline-flex items-center gap-2 bg-white px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-100">{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copied ? t.copied : t.copySnippet}</button></div><textarea readOnly value={detail.embed} rows={8} className="w-full border border-white/10 bg-slate-950 p-4 font-mono text-xs text-slate-300" /></div>
                   <div className="flex justify-end border-t border-white/10 pt-5"><button onClick={saveConfig} disabled={saving} className="inline-flex items-center gap-2 bg-[var(--color-primary)] px-5 py-3 font-semibold text-slate-950 disabled:opacity-60">{saving && <Loader2 className="h-4 w-4 animate-spin" />}{t.save}</button></div>
                 </div> : <div className="p-10 text-center text-slate-500">{t.selectClient}</div>}
@@ -467,9 +500,11 @@ export default function AdminDashboard() {
               <div className={`rounded-[52px] p-4 ${theme === "dark" ? "bg-[#0b141a]" : "bg-[#f7f2ea]"}`}>
                 <div className="mx-auto mb-4 h-[37px] w-[126px] rounded-full bg-black shadow-inner shadow-zinc-800/70" />
                 <div className={`flex items-center gap-3 border-b pb-3 ${theme === "dark" ? "border-white/10" : "border-slate-900/10"}`}><img src="/favicon.png" className="h-9 w-9" /><div><p className={`text-sm font-semibold ${theme === "dark" ? "text-white" : "text-slate-950"}`}>Piroxeno Demo</p><p className="text-xs text-emerald-500">online</p></div></div>
-                <div className="h-[620px] space-y-3 overflow-auto bg-cover bg-center px-1 py-4" style={{ backgroundImage: `url(${theme === "dark" ? whatsappDark : whatsappLight})` }}>
-                  {demoMessages.map((message, index) => <div key={index} className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-5 ${message.role === "user" ? "ml-auto bg-[#005c4b] text-white" : theme === "dark" ? "bg-[#202c33] text-slate-100" : "bg-white text-slate-900 shadow-sm"}`}>{message.content}</div>)}
-                  {!demoMessages.length && <div className="mt-20 text-center text-sm text-slate-500">WhatsApp demo</div>}
+                <div className="h-[620px] overflow-auto bg-cover bg-center" style={{ backgroundImage: `url(${theme === "dark" ? whatsappDark : whatsappLight})` }}>
+                  <div className="space-y-3 px-3 py-4">
+                    {demoMessages.map((message, index) => <div key={index} className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-5 ${message.role === "user" ? "ml-auto bg-[#005c4b] text-white" : theme === "dark" ? "bg-[#202c33] text-slate-100" : "bg-white text-slate-900 shadow-sm"}`}>{message.content}</div>)}
+                    {!demoMessages.length && <div className="mt-20 text-center text-sm text-slate-500">WhatsApp demo</div>}
+                  </div>
                 </div>
                 <form onSubmit={(e) => { e.preventDefault(); void sendDemoMessage(); }} className="flex gap-2">
                   <input value={demoInput} onChange={(e) => setDemoInput(e.target.value)} placeholder={t.typeMessage} className={`min-w-0 flex-1 rounded-full px-4 py-3 text-sm outline-none ${theme === "dark" ? "bg-[#202c33] text-white" : "bg-white text-slate-950 placeholder:text-slate-400"}`} />

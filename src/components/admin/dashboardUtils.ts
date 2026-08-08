@@ -1,6 +1,6 @@
 import type { Lang } from "../../utils/i18n";
 
-export type Section = "overview" | "conversations" | "clients" | "users" | "docs" | "admin" | "demo";
+export type Section = "overview" | "conversations" | "leads" | "clients" | "users" | "docs" | "admin" | "demo";
 export type UserClientMode = "global" | "existing" | "new";
 
 export const OWNER_EMAIL = "alan@piroxeno.com";
@@ -57,6 +57,7 @@ export function getLabels(lang: Lang) {
     subtitle: es ? "Operación, métricas y conversaciones de tus asistentes." : "Operations, metrics and conversations for your assistants.",
     overview: es ? "Dashboard" : "Dashboard",
     conversations: es ? "Conversaciones" : "Conversations",
+    leads: es ? "Leads" : "Leads",
     clients: es ? "Clientes" : "Clients",
     users: es ? "Usuarios" : "Users",
     docs: es ? "Documentación" : "Documentation",
@@ -84,6 +85,10 @@ export function getLabels(lang: Lang) {
     copySnippet: es ? "Copiar snippet" : "Copy snippet",
     copied: es ? "Copiado" : "Copied",
     snippet: es ? "Snippet embebible" : "Embeddable snippet",
+    leadColumns: es ? "Columnas de leads" : "Lead columns",
+    leadColumnsHelp: es ? "Una columna por línea. Ejemplo: Servicio de interés, Presupuesto, Ubicación." : "One column per line. Example: Service interest, Budget, Location.",
+    contact: es ? "Contacto" : "Contact",
+    interest: es ? "Interés" : "Interest",
     accountName: es ? "Account Name" : "Account Name",
     domains: es ? "Whitelist de dominios" : "Domain whitelist",
     rateLimit: es ? "Rate limit por minuto" : "Rate limit per minute",

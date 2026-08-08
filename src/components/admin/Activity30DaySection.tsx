@@ -19,19 +19,18 @@ type Labels = {
   userMessages: string;
   tokens: string;
   latency: string;
+  noData: string;
 };
 
 export function Activity30DaySection({
   activity30d,
   hasActivity30d,
-  maxDailyMessages,
   labels,
   lang,
   formatNumber,
 }: {
   activity30d: ActivityDay[];
   hasActivity30d: boolean;
-  maxDailyMessages: number;
   labels: Labels;
   lang: Lang;
   formatNumber: (value?: number | null) => string;
@@ -39,33 +38,44 @@ export function Activity30DaySection({
   return (
     <section className="border border-white/10 bg-white/[0.035] p-5">
       <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold"><Activity className="h-5 w-5 text-[var(--color-primary)]" /> {labels.activity30d}</h2>
-      <div className="mb-5 flex h-32 items-end gap-1 border-b border-white/10 pb-2">
-        {activity30d.map((day) => (
-          <div key={day.date} className="group relative flex min-w-0 flex-1 items-end">
-            <div
-              className={`w-full transition ${hasActivity30d ? "bg-[var(--color-primary)]/80 hover:bg-[var(--color-primary)]" : "bg-white/10"}`}
-              style={{ height: `${Math.max(day.messages ? 10 : 3, (day.messages / maxDailyMessages) * 100)}%` }}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="overflow-auto">
-        <div className="min-w-[780px] divide-y divide-white/10 text-sm">
-          <div className="grid grid-cols-[1fr_repeat(6,0.75fr)] gap-3 pb-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-            <span>{lang === "es" ? "Día" : "Day"}</span><span>{labels.conversationsKpi}</span><span>{labels.messages}</span><span>{labels.assistant}</span><span>{labels.userMessages}</span><span>{labels.tokens}</span><span>{labels.latency}</span>
-          </div>
-          {activity30d.slice().reverse().map((day) => (
-            <div key={day.date} className="grid grid-cols-[1fr_repeat(6,0.75fr)] gap-3 py-3 text-slate-300">
-              <span className="font-medium text-white">{new Date(day.date).toLocaleDateString()}</span>
-              <span>{formatNumber(day.conversations)}</span>
-              <span>{formatNumber(day.messages)}</span>
-              <span>{formatNumber(day.assistant_messages)}</span>
-              <span>{formatNumber(day.user_messages)}</span>
-              <span>{formatNumber(day.tokens)}</span>
-              <span>{formatNumber(day.avg_latency_ms)} ms</span>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {[
+          { key: "conversations", label: labels.conversationsKpi, unit: "" },
+          { key: "messages", label: labels.messages, unit: "" },
+          { key: "tokens", label: labels.tokens, unit: "" },
+          { key: "avg_latency_ms", label: labels.latency, unit: " ms" },
+        ].map((metric) => {
+          const values = activity30d.map((day) => Number(day[metric.key as keyof ActivityDay]) || 0);
+          const max = Math.max(...values, 1);
+          const points = values.map((value, index) => {
+            const x = (index / Math.max(activity30d.length - 1, 1)) * 100;
+            const y = 100 - (value / max) * 84 - 8;
+            return `${x},${y}`;
+          }).join(" ");
+          const lastValue = values[values.length - 1] || 0;
+          return (
+            <div key={metric.key} className="border border-white/10 bg-slate-950/70 p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-200">{metric.label}</p>
+                  <p className="text-xs text-slate-500">{lang === "es" ? "Últimos 30 días" : "Last 30 days"}</p>
+                </div>
+                <span className="text-sm font-semibold text-[var(--color-primary)]">{formatNumber(lastValue)}{metric.unit}</span>
+              </div>
+              <div className="h-40 border-b border-l border-white/10">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full overflow-visible">
+                  <polyline points={points} fill="none" stroke="rgba(0,204,153,0.95)" strokeWidth="2.2" vectorEffect="non-scaling-stroke" />
+                  <polyline points={`0,100 ${points} 100,100`} fill="rgba(0,204,153,0.10)" stroke="none" />
+                </svg>
+              </div>
+              <div className="mt-2 flex justify-between text-[10px] uppercase tracking-[0.12em] text-slate-500">
+                <span>{activity30d[0] ? new Date(activity30d[0].date).toLocaleDateString(undefined, { day: "2-digit", month: "short" }) : ""}</span>
+                <span>{hasActivity30d ? `${lang === "es" ? "Máx" : "Max"} ${formatNumber(max)}${metric.unit}` : labels.noData}</span>
+                <span>{activity30d[activity30d.length - 1] ? new Date(activity30d[activity30d.length - 1].date).toLocaleDateString(undefined, { day: "2-digit", month: "short" }) : ""}</span>
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </section>
   );

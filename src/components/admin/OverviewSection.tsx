@@ -12,7 +12,6 @@ export function OverviewSection({
   summary,
   activity30d,
   hasActivity30d,
-  maxDailyMessages,
   labels,
   lang,
   loading,
@@ -20,7 +19,6 @@ export function OverviewSection({
   summary: PortalSummary | null;
   activity30d: ActivityDay[];
   hasActivity30d: boolean;
-  maxDailyMessages: number;
   labels: AdminLabels;
   lang: Lang;
   loading: boolean;
@@ -36,7 +34,7 @@ export function OverviewSection({
         <StatCard icon={Gauge} label={labels.latency} value={`${formatNumber(summary?.avg_latency_ms)} ms`} hint={labels.metricHints.latency} />
       </div>
 
-      <Activity30DaySection activity30d={activity30d} hasActivity30d={hasActivity30d} maxDailyMessages={maxDailyMessages} labels={labels} lang={lang} formatNumber={formatNumber} />
+      <Activity30DaySection activity30d={activity30d} hasActivity30d={hasActivity30d} labels={labels} lang={lang} formatNumber={formatNumber} />
 
       <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
         <section className="border border-white/10 bg-white/[0.035] p-5">

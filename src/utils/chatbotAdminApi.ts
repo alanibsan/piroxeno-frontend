@@ -7,10 +7,16 @@ export type ClientSummary = {
   enabled: boolean;
   allowed_origins: string[];
   rate_limit_per_minute: number;
+  lead_columns?: LeadColumn[];
   has_prompt: boolean;
   has_embed: boolean;
   source?: string;
   registry_updated_at?: string;
+};
+
+export type LeadColumn = {
+  key: string;
+  label: string;
 };
 
 export type ClientDetail = {
@@ -19,6 +25,7 @@ export type ClientDetail = {
     enabled: boolean;
     allowed_origins: string[];
     rate_limit_per_minute: number;
+    lead_columns?: LeadColumn[];
     embed_key_hash?: string;
   };
   prompt: string;
@@ -103,6 +110,22 @@ export type PortalDoc = {
   body: string;
 };
 
+export type PortalLead = {
+  id: string;
+  client_slug: string;
+  conversation_id?: string | null;
+  session_id?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  interest?: string | null;
+  fields: Record<string, unknown>;
+  source: string;
+  first_seen_at: string;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type DemoChatResponse = {
   answer: string;
   sources: string[];
@@ -179,6 +202,13 @@ export const chatbotAdminApi = {
     if (impersonateUserId) query.set("impersonate_user_id", impersonateUserId);
     return adminFetch<{ docs: PortalDoc[] }>(`/portal/docs?${query.toString()}`, token);
   },
+  portalLeads(token: string, params: { client_slug?: string; start_date?: string; end_date?: string; limit?: number; impersonate_user_id?: string }) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) query.set(key, String(value));
+    });
+    return adminFetch<{ leads: PortalLead[] }>(`/portal/leads${query.toString() ? `?${query.toString()}` : ""}`, token);
+  },
   demoChat(token: string, body: { prompt: string; question: string; session_id?: string; reset?: boolean }) {
     return adminFetch<DemoChatResponse>("/portal/demo-chat", token, {
       method: "POST",
@@ -216,7 +246,7 @@ export const chatbotAdminApi = {
   updateClientConfig(
     token: string,
     clientSlug: string,
-    body: { allowed_origins?: string[]; enabled?: boolean; rate_limit_per_minute?: number; prompt?: string },
+    body: { allowed_origins?: string[]; enabled?: boolean; rate_limit_per_minute?: number; prompt?: string; lead_columns?: LeadColumn[] },
   ) {
     return adminFetch<{ config: ClientDetail["config"]; prompt?: string }>(`/admin/clients/${clientSlug}/config`, token, {
       method: "PATCH",
