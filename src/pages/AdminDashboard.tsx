@@ -85,6 +85,7 @@ export default function AdminDashboard() {
   const [originsDraft, setOriginsDraft] = useState("");
   const [enabledDraft, setEnabledDraft] = useState(true);
   const [rateLimitDraft, setRateLimitDraft] = useState(30);
+  const [promptDraft, setPromptDraft] = useState("");
 
   const [userClientMode, setUserClientMode] = useState<UserClientMode>("existing");
   const [newUserClientForm, setNewUserClientForm] = useState({ account_name: "", title: "", allowed_origins: "", primary_color: "#00cc99", rate_limit_per_minute: 30 });
@@ -166,6 +167,7 @@ export default function AdminDashboard() {
     setOriginsDraft(arrayToLines(clientDetail.config.allowed_origins));
     setEnabledDraft(Boolean(clientDetail.config.enabled));
     setRateLimitDraft(clientDetail.config.rate_limit_per_minute || 30);
+    setPromptDraft(clientDetail.prompt || "");
   };
 
   useEffect(() => {
@@ -259,6 +261,7 @@ export default function AdminDashboard() {
         allowed_origins: linesToArray(originsDraft),
         enabled: enabledDraft,
         rate_limit_per_minute: Number(rateLimitDraft),
+        prompt: promptDraft,
       });
       await loadClientDetail(detail.client_slug);
       setNotice(lang === "es" ? "Configuración guardada" : "Configuration saved");
@@ -438,9 +441,11 @@ export default function AdminDashboard() {
                   <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><h2 className="text-2xl font-semibold">{detail.client_slug}</h2><p className="mt-1 text-sm text-slate-500">Config</p></div></div>
                   <div className="grid gap-6 lg:grid-cols-2">
                     <label className="text-sm font-semibold text-slate-300">{t.domains}<textarea value={originsDraft} onChange={(e) => setOriginsDraft(e.target.value)} rows={8} className="mt-2 w-full border border-white/10 bg-slate-950 p-4 font-mono text-sm text-white outline-none focus:border-[var(--color-primary)]" /></label>
-                    <div className="space-y-4"><label className="flex items-center gap-3 border border-white/10 bg-slate-950 p-4 text-sm"><input type="checkbox" checked={enabledDraft} onChange={(e) => setEnabledDraft(e.target.checked)} /> {t.active}</label><label className="block text-sm font-semibold text-slate-300">{t.rateLimit}<TextInput type="number" min={1} value={rateLimitDraft} onChange={(e) => setRateLimitDraft(Number(e.target.value))} className="mt-2 w-full" /></label><button onClick={saveConfig} disabled={saving} className="inline-flex items-center gap-2 bg-[var(--color-primary)] px-5 py-3 font-semibold text-slate-950 disabled:opacity-60">{saving && <Loader2 className="h-4 w-4 animate-spin" />}{t.save}</button></div>
+                    <div className="space-y-4"><label className="flex items-center gap-3 border border-white/10 bg-slate-950 p-4 text-sm"><input type="checkbox" checked={enabledDraft} onChange={(e) => setEnabledDraft(e.target.checked)} /> {t.active}</label><label className="block text-sm font-semibold text-slate-300">{t.rateLimit}<TextInput type="number" min={1} value={rateLimitDraft} onChange={(e) => setRateLimitDraft(Number(e.target.value))} className="mt-2 w-full" /></label></div>
                   </div>
+                  <label className="block text-sm font-semibold text-slate-300">Prompt<textarea value={promptDraft} onChange={(e) => setPromptDraft(e.target.value)} rows={12} className="mt-2 w-full border border-white/10 bg-slate-950 p-4 font-mono text-sm leading-6 text-white outline-none focus:border-[var(--color-primary)]" /></label>
                   <div><div className="mb-2 flex items-center justify-between"><label className="text-sm font-semibold text-slate-300">{t.snippet}</label><button onClick={() => copyEmbed(detail.embed)} className="inline-flex items-center gap-2 bg-white px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-100">{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copied ? t.copied : t.copySnippet}</button></div><textarea readOnly value={detail.embed} rows={8} className="w-full border border-white/10 bg-slate-950 p-4 font-mono text-xs text-slate-300" /></div>
+                  <div className="flex justify-end border-t border-white/10 pt-5"><button onClick={saveConfig} disabled={saving} className="inline-flex items-center gap-2 bg-[var(--color-primary)] px-5 py-3 font-semibold text-slate-950 disabled:opacity-60">{saving && <Loader2 className="h-4 w-4 animate-spin" />}{t.save}</button></div>
                 </div> : <div className="p-10 text-center text-slate-500">{t.selectClient}</div>}
               </section>
             </div>

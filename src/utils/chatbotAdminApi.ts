@@ -216,9 +216,9 @@ export const chatbotAdminApi = {
   updateClientConfig(
     token: string,
     clientSlug: string,
-    body: { allowed_origins?: string[]; enabled?: boolean; rate_limit_per_minute?: number },
+    body: { allowed_origins?: string[]; enabled?: boolean; rate_limit_per_minute?: number; prompt?: string },
   ) {
-    return adminFetch<{ config: ClientDetail["config"] }>(`/admin/clients/${clientSlug}/config`, token, {
+    return adminFetch<{ config: ClientDetail["config"]; prompt?: string }>(`/admin/clients/${clientSlug}/config`, token, {
       method: "PATCH",
       body: JSON.stringify(body),
     });
