@@ -500,16 +500,18 @@ export default function AdminDashboard() {
               <div className={`rounded-[52px] p-4 ${theme === "dark" ? "bg-[#0b141a]" : "bg-[#f7f2ea]"}`}>
                 <div className="mx-auto mb-4 h-[37px] w-[126px] rounded-full bg-black shadow-inner shadow-zinc-800/70" />
                 <div className={`flex items-center gap-3 border-b pb-3 ${theme === "dark" ? "border-white/10" : "border-slate-900/10"}`}><img src="/favicon.png" className="h-9 w-9" /><div><p className={`text-sm font-semibold ${theme === "dark" ? "text-white" : "text-slate-950"}`}>Piroxeno Demo</p><p className="text-xs text-emerald-500">online</p></div></div>
-                <div className="h-[620px] overflow-auto bg-cover bg-center" style={{ backgroundImage: `url(${theme === "dark" ? whatsappDark : whatsappLight})` }}>
-                  <div className="space-y-3 px-3 py-4">
-                    {demoMessages.map((message, index) => <div key={index} className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-5 ${message.role === "user" ? "ml-auto bg-[#005c4b] text-white" : theme === "dark" ? "bg-[#202c33] text-slate-100" : "bg-white text-slate-900 shadow-sm"}`}>{message.content}</div>)}
-                    {!demoMessages.length && <div className="mt-20 text-center text-sm text-slate-500">WhatsApp demo</div>}
+                <div className="-mx-4 -mb-4 overflow-hidden rounded-b-[48px] bg-cover bg-center px-4 pb-4" style={{ backgroundImage: `url(${theme === "dark" ? whatsappDark : whatsappLight})` }}>
+                  <div className="h-[620px] overflow-auto">
+                    <div className="space-y-3 py-4">
+                      {demoMessages.map((message, index) => <div key={index} className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-5 ${message.role === "user" ? "ml-auto bg-[#005c4b] text-white" : theme === "dark" ? "bg-[#202c33] text-slate-100" : "bg-white text-slate-900 shadow-sm"}`}>{message.content}</div>)}
+                      {!demoMessages.length && <div className="mt-20 text-center text-sm text-slate-500">WhatsApp demo</div>}
+                    </div>
                   </div>
+                  <form onSubmit={(e) => { e.preventDefault(); void sendDemoMessage(); }} className="flex gap-2">
+                    <input value={demoInput} onChange={(e) => setDemoInput(e.target.value)} placeholder={t.typeMessage} className={`min-w-0 flex-1 rounded-full px-4 py-3 text-sm outline-none ${theme === "dark" ? "bg-[#202c33] text-white" : "bg-white text-slate-950 placeholder:text-slate-400"}`} />
+                    <button className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-primary)] text-slate-950"><Send className="h-5 w-5" /></button>
+                  </form>
                 </div>
-                <form onSubmit={(e) => { e.preventDefault(); void sendDemoMessage(); }} className="flex gap-2">
-                  <input value={demoInput} onChange={(e) => setDemoInput(e.target.value)} placeholder={t.typeMessage} className={`min-w-0 flex-1 rounded-full px-4 py-3 text-sm outline-none ${theme === "dark" ? "bg-[#202c33] text-white" : "bg-white text-slate-950 placeholder:text-slate-400"}`} />
-                  <button className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-primary)] text-slate-950"><Send className="h-5 w-5" /></button>
-                </form>
               </div>
             </div>
           </section>}
